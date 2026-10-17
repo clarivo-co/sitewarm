@@ -32,6 +32,8 @@
 # Run every step from the same machine, against one CDN, ideally off-peak:
 # real visitors warm the control group too.
 set -euo pipefail
+# jq prints dot decimals; a comma-decimal locale would make printf reject them.
+export LC_ALL=C
 
 min_hit_points=20
 min_ttfb_ms=200

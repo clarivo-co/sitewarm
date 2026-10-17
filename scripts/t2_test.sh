@@ -73,6 +73,8 @@ expect "exactly 200 ms passes" 0 "median TTFB 200 ms faster" bash "$t2" compare 
 report w.json FRA - hit:300 miss:300 miss:300 miss:300 miss:300 miss:300
 report c.json FRA - miss:350 miss:350 miss:350 miss:350 miss:350 miss:350
 expect "not met: 16.7 points and 50 ms" 1 "verdict: not-met: HIT +16.7 points, median TTFB 50 ms faster" bash "$t2" compare w.json c.json
+expect "comma-decimal locale still prints a verdict" 1 "verdict: not-met: HIT +16.7 points" \
+	env LC_ALL=de_DE.UTF-8 LANG=de_DE.UTF-8 bash "$t2" compare w.json c.json
 
 report w.json FRA - hit:10 hit:10
 report c.json AMS - miss:500 miss:500
