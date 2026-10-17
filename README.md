@@ -57,7 +57,8 @@ With `--from-sitemap`, sitemap URLs are checked against the site's
 `sitewarm` group. A disallowed URL is not requested and is reported as
 `skipped-robots`. Blocked URLs do not count toward `--top`: `--top 50` warms
 50 allowed URLs. The blocked URLs met before the 50th allowed one are reported
-as `skipped-robots`; the rest of the sitemap is not checked or reported. A
+as `skipped-robots`; reading stops there, so the rest of the sitemap is not
+fetched, checked or reported. A
 `robots.txt` that returns any 4xx status (401, 403, 404, 410...) allows
 everything, as RFC 9309 says; a 5xx status, a timeout or a network or DNS error
 skips every URL of that host, with a warning.

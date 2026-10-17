@@ -171,6 +171,7 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 
 	var urls []string
 	var stopped error
+	skip := map[string]bool{}
 	if opts.TopFrom != "" {
 		f, err := os.Open(opts.TopFrom)
 		if err != nil {
@@ -183,56 +184,45 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 		}
 	} else {
 		res.Settings.Source = opts.FromSitemap
-		// With robots.txt checks, --top counts allowed URLs only, so the
-		// whole sitemap is read.
-		limit := opts.Top
+		// robots.txt is consulted only for sitemap URLs: a --top-from list is
+		// chosen explicitly by its operator. URLs are checked while the
+		// sitemap is read, and --top N counts allowed URLs only: the walk
+		// stops at the Nth allowed URL, the blocked URLs met before it are
+		// reported as skipped-robots, and the rest of the sitemap is neither
+		// fetched nor checked.
+		var accept func(string) bool
+		var robots *source.Robots
 		if checkRobots {
-			limit = 0
+			robots = fetcher.NewRobots()
+			accept = func(u string) bool {
+				ok, err := robots.Allowed(runCtx, u)
+				switch {
+				case runCtx.Err() != nil:
+					// Interrupted: kept unchecked, so the scheduler reports it
+					// incomplete. It counts toward --top, so at most N stay.
+					return true
+				case err != nil || !ok:
+					skip[u] = true
+					return false
+				}
+				return true
+			}
 		}
-		urls, err = fetcher.ReadSitemap(runCtx, opts.FromSitemap, limit)
+		urls, err = fetcher.ReadSitemap(runCtx, opts.FromSitemap, opts.Top, accept)
+		if robots != nil {
+			res.Warnings = robots.Warnings()
+		}
 		switch {
 		case err != nil && runCtx.Err() != nil:
-			// Interrupted or timed out while reading: an empty report that
-			// fails, not a configuration error.
-			urls, stopped = nil, runCtx.Err()
+			// Interrupted or timed out while reading: a stopped report that
+			// fails, not a configuration error. The URLs read so far are
+			// reported, the unchecked ones incomplete.
+			stopped = runCtx.Err()
 		case err != nil:
 			return nil, configErr(err)
 		}
 	}
-	// robots.txt is consulted only for sitemap URLs: a --top-from list is
-	// chosen explicitly by its operator. --top N then keeps the first N
-	// allowed URLs; the URLs skipped before the Nth allowed one stay in the
-	// list, reported as skipped-robots, and the rest of the sitemap is not
-	// checked.
-	skip := map[string]bool{}
-	if checkRobots {
-		robots := fetcher.NewRobots()
-		kept, allowedN := urls[:0:0], 0
-		for i, u := range urls {
-			if opts.Top > 0 && allowedN == opts.Top {
-				break
-			}
-			ok, err := robots.Allowed(runCtx, u)
-			if runCtx.Err() != nil {
-				// Interrupted: the URLs not checked yet are kept but not
-				// skipped; the scheduler reports them incomplete.
-				rest := urls[i:]
-				if opts.Top > 0 && len(rest) > opts.Top-allowedN {
-					rest = rest[:opts.Top-allowedN]
-				}
-				kept = append(kept, rest...)
-				break
-			}
-			kept = append(kept, u)
-			if err != nil || !ok {
-				skip[u] = true
-			} else {
-				allowedN++
-			}
-		}
-		urls = kept
-		res.Warnings = robots.Warnings()
-	} else if opts.Top > 0 && len(urls) > opts.Top {
+	if opts.TopFrom != "" && opts.Top > 0 && len(urls) > opts.Top {
 		urls = urls[:opts.Top]
 	}
 

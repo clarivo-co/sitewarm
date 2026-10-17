@@ -96,7 +96,7 @@ func TestFetcherWaitsBeforeEachRequest(t *testing.T) {
 	var waits atomic.Int32
 	f := Fetcher{Client: srv.Client(), Wait: func(context.Context) error { waits.Add(1); return nil }}
 	f.NewRobots().Allowed(context.Background(), srv.URL+"/a")
-	f.ReadSitemap(context.Background(), srv.URL+"/sitemap.xml", 0)
+	f.ReadSitemap(context.Background(), srv.URL+"/sitemap.xml", 0, nil)
 	if n := waits.Load(); n != 2 {
 		t.Fatalf("Wait called %d times, want 2", n)
 	}

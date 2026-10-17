@@ -96,7 +96,7 @@ func TestReadSitemapNestedIndexAndGzip(t *testing.T) {
 		"/nested-index.xml":  index("{base}/pages.xml.gz", "{base}/sitemap.xml"),
 		"/pages.xml.gz":      urlset("{base}/c", "{base}/b"),
 	})
-	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml", 0)
+	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml", 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestReadSitemapGzipRoot(t *testing.T) {
 		"/sitemap.xml.gz": index("{base}/s.xml"),
 		"/s.xml":          urlset("{base}/x"),
 	})
-	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml.gz", 0)
+	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml.gz", 0, nil)
 	if err != nil || len(got) != 1 || got[0] != s.srv.URL+"/x" {
 		t.Fatalf("got %v, %v", got, err)
 	}
@@ -128,7 +128,7 @@ func TestReadSitemapContentEncodingGzip(t *testing.T) {
 		w.Write(gzipBytes(t, urlset("https://example.com/y")))
 	}))
 	defer srv.Close()
-	got, err := Fetcher{Client: srv.Client()}.ReadSitemap(context.Background(), srv.URL, 0)
+	got, err := Fetcher{Client: srv.Client()}.ReadSitemap(context.Background(), srv.URL, 0, nil)
 	if err != nil || len(got) != 1 || got[0] != "https://example.com/y" {
 		t.Fatalf("got %v, %v", got, err)
 	}
@@ -140,12 +140,53 @@ func TestReadSitemapLimitStopsEarly(t *testing.T) {
 		"/one.xml":     urlset("{base}/1", "{base}/2"),
 		"/two.xml":     urlset("{base}/3"),
 	})
-	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml", 2)
+	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml", 2, nil)
 	if err != nil || len(got) != 2 {
 		t.Fatalf("got %v, %v", got, err)
 	}
 	if s.count("/two.xml") != 0 {
 		t.Fatal("read a sitemap after the limit was reached")
+	}
+}
+
+// Only accepted URLs count toward the limit; rejected ones are still
+// returned, and the walk stops at the limit without reading later sitemaps.
+func TestReadSitemapAcceptCountsTowardLimit(t *testing.T) {
+	s := newSite(t, map[string]string{
+		"/sitemap.xml": index("{base}/one.xml", "{base}/two.xml", "{base}/three.xml"),
+		"/one.xml":     urlset("{base}/1", "{base}/blocked/2"),
+		"/two.xml":     urlset("{base}/blocked/3", "{base}/4", "{base}/blocked/5"),
+		"/three.xml":   urlset("{base}/6"),
+	})
+	var asked []string
+	accept := func(u string) bool {
+		asked = append(asked, u)
+		return !strings.Contains(u, "/blocked/")
+	}
+	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml", 2, accept)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := s.srv.URL
+	want := []string{b + "/1", b + "/blocked/2", b + "/blocked/3", b + "/4"}
+	if !reflect.DeepEqual(got, want) || !reflect.DeepEqual(asked, want) {
+		t.Fatalf("got %v, asked %v; want %v", got, asked, want)
+	}
+	if s.count("/three.xml") != 0 {
+		t.Fatal("read a sitemap after the limit was reached")
+	}
+}
+
+// On an error the URLs read so far come back with it, so an interrupted
+// run can report them.
+func TestReadSitemapErrorKeepsURLsRead(t *testing.T) {
+	s := newSite(t, map[string]string{
+		"/sitemap.xml": index("{base}/one.xml", "{base}/missing.xml"),
+		"/one.xml":     urlset("{base}/1"),
+	})
+	got, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/sitemap.xml", 0, nil)
+	if err == nil || len(got) != 1 {
+		t.Fatalf("got %v, %v", got, err)
 	}
 }
 
@@ -165,15 +206,15 @@ func TestReadSitemapErrors(t *testing.T) {
 		"/nope":      "HTTP 404",
 	}
 	for path, want := range cases {
-		_, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+path, 0)
+		_, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+path, 0, nil)
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: got %v, want %q", path, err, want)
 		}
 	}
-	if _, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/empty", 0); !errors.Is(err, ErrEmpty) {
+	if _, err := fetcher(s).ReadSitemap(context.Background(), s.srv.URL+"/empty", 0, nil); !errors.Is(err, ErrEmpty) {
 		t.Errorf("empty: got %v", err)
 	}
-	if _, err := fetcher(s).ReadSitemap(context.Background(), "sitemap.xml", 0); err == nil {
+	if _, err := fetcher(s).ReadSitemap(context.Background(), "sitemap.xml", 0, nil); err == nil {
 		t.Error("a relative sitemap URL must fail")
 	}
 }
@@ -189,7 +230,7 @@ func TestReadSitemapSendsUserAgent(t *testing.T) {
 	}))
 	defer srv.Close()
 	f := Fetcher{Client: srv.Client(), UserAgent: "Mozilla/5.0 sitewarm/dev"}
-	if _, err := f.ReadSitemap(context.Background(), srv.URL, 0); err != nil {
+	if _, err := f.ReadSitemap(context.Background(), srv.URL, 0, nil); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()

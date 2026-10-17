@@ -46,15 +46,19 @@ func (f Fetcher) get(ctx context.Context, rawURL string) (*http.Response, error)
 // ReadSitemap returns the page URLs of a sitemap in document order. A
 // sitemap index is followed depth first, nested indexes included, and each
 // sitemap is read once. Gzip-compressed sitemaps (.gz) are detected by
-// their content. Duplicates are dropped. With limit > 0, reading stops once
-// limit URLs are found.
-func (f Fetcher) ReadSitemap(ctx context.Context, sitemapURL string, limit int) ([]string, error) {
+// their content. Duplicates are dropped.
+//
+// accept, when set, is called once per URL in order; only accepted URLs
+// count toward limit, but every URL seen is returned. With limit > 0,
+// reading stops once limit URLs are accepted, so later sitemaps are not
+// fetched. On an error the URLs read so far are returned with it.
+func (f Fetcher) ReadSitemap(ctx context.Context, sitemapURL string, limit int, accept func(string) bool) ([]string, error) {
 	if _, err := parseAbsolute(sitemapURL); err != nil {
 		return nil, fmt.Errorf("--from-sitemap: %w", err)
 	}
-	w := &sitemapWalk{f: f, limit: limit, visited: map[string]bool{}, seen: map[string]bool{}}
+	w := &sitemapWalk{f: f, limit: limit, accept: accept, visited: map[string]bool{}, seen: map[string]bool{}}
 	if err := w.visit(ctx, sitemapURL); err != nil && !errors.Is(err, errLimit) {
-		return nil, err
+		return w.urls, err
 	}
 	if len(w.urls) == 0 {
 		return nil, ErrEmpty
@@ -65,11 +69,13 @@ func (f Fetcher) ReadSitemap(ctx context.Context, sitemapURL string, limit int) 
 var errLimit = errors.New("limit reached")
 
 type sitemapWalk struct {
-	f       Fetcher
-	limit   int
-	visited map[string]bool
-	seen    map[string]bool
-	urls    []string
+	f        Fetcher
+	limit    int
+	accept   func(string) bool
+	accepted int
+	visited  map[string]bool
+	seen     map[string]bool
+	urls     []string
 }
 
 // sitemapDoc matches both <urlset> and <sitemapindex>, in any namespace.
@@ -116,7 +122,10 @@ func (w *sitemapWalk) visit(ctx context.Context, sitemapURL string) error {
 			}
 			w.seen[s] = true
 			w.urls = append(w.urls, s)
-			if w.limit > 0 && len(w.urls) >= w.limit {
+			if w.accept == nil || w.accept(s) {
+				w.accepted++
+			}
+			if w.limit > 0 && w.accepted >= w.limit {
 				return errLimit
 			}
 		}

@@ -183,6 +183,48 @@ func TestScanFromSitemapTopCountsAllowedURLs(t *testing.T) {
 	}
 }
 
+// With robots.txt checks on, the sitemap walk still stops at the Nth
+// allowed URL: later sitemaps of the index are not fetched.
+func TestScanFromSitemapRobotsStopsReadingAtTop(t *testing.T) {
+	var mu sync.Mutex
+	fetched := map[string]int{}
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		fetched[r.URL.Path]++
+		mu.Unlock()
+		switch r.URL.Path {
+		case "/robots.txt":
+			w.Write([]byte("User-agent: *\nDisallow: /private\n"))
+		case "/sitemap.xml":
+			fmt.Fprintf(w, `<sitemapindex><sitemap><loc>%[1]s/one.xml</loc></sitemap><sitemap><loc>%[1]s/two.xml</loc></sitemap></sitemapindex>`, srv.URL)
+		case "/one.xml":
+			fmt.Fprintf(w, `<urlset><url><loc>%[1]s/private/x</loc></url><url><loc>%[1]s/a</loc></url></urlset>`, srv.URL)
+		case "/two.xml":
+			fmt.Fprintf(w, `<urlset><url><loc>%s/b</loc></url></urlset>`, srv.URL)
+		default:
+			w.Header().Set("Cf-Cache-Status", "HIT")
+			w.Write([]byte("<html><head></head></html>"))
+		}
+	}))
+	defer srv.Close()
+	o := fastOptions("")
+	o.TopFrom, o.FromSitemap = "", srv.URL+"/sitemap.xml"
+	o.Top = 1
+	res, err := sitewarm.Scan(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Summary.Total != 4 || res.Summary.ByState[sitewarm.SkippedRobots] != 2 || res.Summary.ByState[sitewarm.Hit] != 2 {
+		t.Fatalf("results: %s", states(res))
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if fetched["/two.xml"] != 0 {
+		t.Fatal("read a sitemap after --top allowed URLs were found")
+	}
+}
+
 // Sitemap and robots.txt fetches share the --rps budget with warming.
 func TestScanFromSitemapRPSCoversSourceFetches(t *testing.T) {
 	var mu sync.Mutex
