@@ -27,6 +27,10 @@ Tests must not hit the network: use `httptest` servers and recorded headers.
 Code that waits (retries, timeouts) is tested with `testing/synctest` so it
 runs in virtual time.
 
+`scripts/t2.sh` measures whether warming helps on a real deploy, with a
+random warmed/control split (usage in the script header). Its tests need
+bash and jq: `bash scripts/t2_test.sh`.
+
 ### Adding or fixing a CDN
 
 CDN detection lives in `internal/cdn`. Add a test with the real response
