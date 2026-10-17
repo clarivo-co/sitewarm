@@ -157,6 +157,72 @@ func TestScanFromSitemapIgnoreRobots(t *testing.T) {
 	}
 }
 
+// --top counts allowed URLs only. The URLs skipped before the Nth allowed
+// one are reported; the rest of the sitemap is not checked.
+func TestScanFromSitemapTopCountsAllowedURLs(t *testing.T) {
+	s := newSitemapSite(t, robotsBody("User-agent: *\nDisallow: /private\n"))
+	o := sitemapOptions(s)
+	o.Top = 2
+	res, err := sitewarm.Scan(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// /a and /c are the 2 allowed URLs; /private/b, between them, is skipped.
+	if res.Summary.Total != 6 || res.Summary.ByState[sitewarm.Hit] != 4 || res.Summary.ByState[sitewarm.SkippedRobots] != 2 ||
+		res.Results[4].URL != s.URL+"/c" {
+		t.Fatalf("results: %s", states(res))
+	}
+
+	o.Top = 1
+	res, err = sitewarm.Scan(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Summary.Total != 2 || res.Summary.ByState[sitewarm.SkippedRobots] != 0 {
+		t.Fatalf("a skipped URL after the Nth allowed one must not be reported: %s", states(res))
+	}
+}
+
+// Sitemap and robots.txt fetches share the --rps budget with warming.
+func TestScanFromSitemapRPSCoversSourceFetches(t *testing.T) {
+	var mu sync.Mutex
+	var times []time.Time
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		times = append(times, time.Now())
+		mu.Unlock()
+		switch r.URL.Path {
+		case "/robots.txt":
+			http.NotFound(w, r)
+		case "/sitemap.xml":
+			fmt.Fprintf(w, `<sitemapindex><sitemap><loc>%s/pages.xml</loc></sitemap></sitemapindex>`, srv.URL)
+		case "/pages.xml":
+			fmt.Fprintf(w, `<urlset><url><loc>%[1]s/a</loc></url><url><loc>%[1]s/b</loc></url></urlset>`, srv.URL)
+		default:
+			w.Header().Set("Cf-Cache-Status", "HIT")
+			w.Write([]byte("<html><head></head></html>"))
+		}
+	}))
+	defer srv.Close()
+	o := fastOptions("")
+	o.TopFrom, o.FromSitemap = "", srv.URL+"/sitemap.xml"
+	o.RPS = 20 // 50ms apart
+	res, err := sitewarm.Scan(context.Background(), o)
+	if err != nil || !res.Summary.Passed {
+		t.Fatalf("%v %+v", err, res.Summary)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	// 2 sitemaps + 1 robots.txt + 2 URLs x 2 profiles = 7 requests.
+	if len(times) != 7 {
+		t.Fatalf("%d requests", len(times))
+	}
+	if span := times[len(times)-1].Sub(times[0]); span < 270*time.Millisecond {
+		t.Fatalf("7 requests at 20 rps spanned %v, want >= 300ms", span)
+	}
+}
+
 func TestScanFromSitemapTopKeepsOrder(t *testing.T) {
 	s := newSitemapSite(t, robotsStatus(http.StatusNotFound))
 	o := sitemapOptions(s)

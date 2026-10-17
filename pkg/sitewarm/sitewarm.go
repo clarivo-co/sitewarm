@@ -159,10 +159,15 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 	// as well as warming and verifying.
 	runCtx, cancel := context.WithTimeout(ctx, opts.RunTimeout)
 	defer cancel()
+	// One --rps budget for every request: sitemaps, robots.txt, warming
+	// and verification.
+	limiter := verify.NewLimiter(opts.RPS)
 	fetcher := source.Fetcher{
 		Client:    sourceClient(opts),
 		UserAgent: profiles[0].Header.Get("User-Agent"),
+		Wait:      limiter.Wait,
 	}
+	checkRobots := opts.FromSitemap != "" && !opts.IgnoreRobots
 
 	var urls []string
 	var stopped error
@@ -178,7 +183,13 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 		}
 	} else {
 		res.Settings.Source = opts.FromSitemap
-		urls, err = fetcher.ReadSitemap(runCtx, opts.FromSitemap, opts.Top)
+		// With robots.txt checks, --top counts allowed URLs only, so the
+		// whole sitemap is read.
+		limit := opts.Top
+		if checkRobots {
+			limit = 0
+		}
+		urls, err = fetcher.ReadSitemap(runCtx, opts.FromSitemap, limit)
 		switch {
 		case err != nil && runCtx.Err() != nil:
 			// Interrupted or timed out while reading: an empty report that
@@ -188,27 +199,41 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 			return nil, configErr(err)
 		}
 	}
-	if opts.Top > 0 && len(urls) > opts.Top {
-		urls = urls[:opts.Top]
-	}
-
 	// robots.txt is consulted only for sitemap URLs: a --top-from list is
-	// chosen explicitly by its operator.
+	// chosen explicitly by its operator. --top N then keeps the first N
+	// allowed URLs; the URLs skipped before the Nth allowed one stay in the
+	// list, reported as skipped-robots, and the rest of the sitemap is not
+	// checked.
 	skip := map[string]bool{}
-	if opts.FromSitemap != "" && !opts.IgnoreRobots {
+	if checkRobots {
 		robots := fetcher.NewRobots()
-		for _, u := range urls {
-			ok, err := robots.Allowed(runCtx, u)
-			if runCtx.Err() != nil {
-				// Interrupted: the URLs not checked yet are not skipped;
-				// the scheduler reports them incomplete.
+		kept, allowedN := urls[:0:0], 0
+		for i, u := range urls {
+			if opts.Top > 0 && allowedN == opts.Top {
 				break
 			}
+			ok, err := robots.Allowed(runCtx, u)
+			if runCtx.Err() != nil {
+				// Interrupted: the URLs not checked yet are kept but not
+				// skipped; the scheduler reports them incomplete.
+				rest := urls[i:]
+				if opts.Top > 0 && len(rest) > opts.Top-allowedN {
+					rest = rest[:opts.Top-allowedN]
+				}
+				kept = append(kept, rest...)
+				break
+			}
+			kept = append(kept, u)
 			if err != nil || !ok {
 				skip[u] = true
+			} else {
+				allowedN++
 			}
 		}
+		urls = kept
 		res.Warnings = robots.Warnings()
+	} else if opts.Top > 0 && len(urls) > opts.Top {
+		urls = urls[:opts.Top]
 	}
 
 	// all keeps the list order; only the pairs not skipped are requested.
@@ -225,7 +250,7 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 
 	outcomes, runStopped := verify.Run(runCtx, verify.Config{
 		Concurrency:     opts.Concurrency,
-		RPS:             opts.RPS,
+		Limiter:         limiter,
 		RetryInterval:   opts.RetryInterval,
 		MaxWait:         opts.MaxWait,
 		RunTimeout:      opts.RunTimeout,

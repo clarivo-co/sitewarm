@@ -15,8 +15,11 @@ type Config struct {
 	// Concurrency is the number of requests in flight at once.
 	Concurrency int
 	// RPS is the global request rate shared by first attempts and retries.
-	// Zero or less means unlimited.
-	RPS           float64
+	// Zero or less means unlimited. Ignored when Limiter is set.
+	RPS float64
+	// Limiter, when set, is shared with requests made outside the scheduler
+	// (sitemap and robots.txt fetches) so the whole run keeps one rate.
+	Limiter       *Limiter
 	RetryInterval time.Duration
 	// MaxWait is how long, from the first attempt, a pair keeps being
 	// retried while it is miss or stale. Zero means a single attempt.
@@ -97,9 +100,9 @@ func Run(ctx context.Context, cfg Config, pairs []Pair, do ProbeFunc) (out []Out
 	defer cancel()
 
 	workers := max(cfg.Concurrency, 1)
-	var interval time.Duration
-	if cfg.RPS > 0 {
-		interval = time.Duration(float64(time.Second) / cfg.RPS)
+	limiter := cfg.Limiter
+	if limiter == nil {
+		limiter = NewLimiter(cfg.RPS)
 	}
 
 	out = make([]Outcome, len(pairs))
@@ -121,7 +124,6 @@ func Run(ctx context.Context, cfg Config, pairs []Pair, do ProbeFunc) (out []Out
 	first := 0 // next pair never requested
 	var retries retryHeap
 	seq := 0
-	var nextSlot time.Time // earliest time the limiter allows a request
 	inflight, finished := 0, 0
 
 	finish := func(idx int, v Verdict) {
@@ -195,8 +197,8 @@ func Run(ctx context.Context, cfg Config, pairs []Pair, do ProbeFunc) (out []Out
 		default:
 			return 0, false, time.Time{}, false
 		}
-		if nextSlot.After(due) {
-			due = nextSlot
+		if slot := limiter.Next(); slot.After(due) {
+			due = slot
 		}
 		if due.After(now) {
 			return 0, false, due, true
@@ -222,12 +224,7 @@ loop:
 				wake, waiting = w, wt
 				break
 			}
-			if interval > 0 {
-				if nextSlot.Before(now) {
-					nextSlot = now
-				}
-				nextSlot = nextSlot.Add(interval)
-			}
+			limiter.Take(now)
 			inflight++
 			work <- idx
 		}

@@ -17,13 +17,20 @@ import (
 const MaxSitemapBytes = 50 << 20
 
 // Fetcher gets sitemaps and robots.txt files. Every request sends
-// UserAgent.
+// UserAgent and, when Wait is set, first waits for it: the run's global
+// rate limit.
 type Fetcher struct {
 	Client    *http.Client
 	UserAgent string
+	Wait      func(context.Context) error
 }
 
 func (f Fetcher) get(ctx context.Context, rawURL string) (*http.Response, error) {
+	if f.Wait != nil {
+		if err := f.Wait(ctx); err != nil {
+			return nil, err
+		}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err

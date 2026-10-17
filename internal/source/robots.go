@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -24,9 +23,9 @@ const maxRobotsBytes = 500 << 10
 // scheme and host. It is safe for concurrent use.
 //
 //   - 2xx: the rules apply.
-//   - 404: everything is allowed.
-//   - Any other status, a timeout or a network error: robots.txt is
-//     unavailable and every URL of that host is skipped, with a warning.
+//   - 4xx (401, 403, 404, 410...): everything is allowed, as RFC 9309 says.
+//   - 5xx, any other status, a timeout or a network error: robots.txt is
+//     unreachable and every URL of that host is skipped, with a warning.
 type Robots struct {
 	f        Fetcher
 	mu       sync.Mutex
@@ -105,7 +104,8 @@ func (r *Robots) load(ctx context.Context, u *url.URL) *robotsHost {
 	}
 	defer resp.Body.Close()
 	switch {
-	case resp.StatusCode == http.StatusNotFound:
+	case resp.StatusCode >= 400 && resp.StatusCode <= 499:
+		// RFC 9309 §2.3.1.3: robots.txt "unavailable" allows everything.
 		return &robotsHost{}
 	case resp.StatusCode < 200 || resp.StatusCode > 299:
 		r.warn("%s returned HTTP %d; its sitemap URLs are skipped-robots", robotsURL, resp.StatusCode)

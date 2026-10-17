@@ -79,6 +79,29 @@ Disallow:
 	}
 }
 
+func TestRobotsNetworkErrorSkips(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	url := srv.URL
+	srv.Close() // nothing listens any more: connection refused
+	robots := Fetcher{Client: &http.Client{Timeout: time.Second}}.NewRobots()
+	ok, err := robots.Allowed(context.Background(), url+"/a")
+	if err != nil || ok || len(robots.Warnings()) != 1 {
+		t.Fatalf("Allowed = %v, %v; warnings %v", ok, err, robots.Warnings())
+	}
+}
+
+func TestFetcherWaitsBeforeEachRequest(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	var waits atomic.Int32
+	f := Fetcher{Client: srv.Client(), Wait: func(context.Context) error { waits.Add(1); return nil }}
+	f.NewRobots().Allowed(context.Background(), srv.URL+"/a")
+	f.ReadSitemap(context.Background(), srv.URL+"/sitemap.xml", 0)
+	if n := waits.Load(); n != 2 {
+		t.Fatalf("Wait called %d times, want 2", n)
+	}
+}
+
 func TestRobotsFetchPolicies(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -87,6 +110,10 @@ func TestRobotsFetchPolicies(t *testing.T) {
 		warns   bool
 	}{
 		{"404 allows everything", func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }, true, false},
+		{"401 allows everything", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusUnauthorized) }, true, false},
+		{"403 allows everything", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusForbidden) }, true, false},
+		{"410 allows everything", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusGone) }, true, false},
+		{"429 allows everything", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusTooManyRequests) }, true, false},
 		{"5xx skips", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }, false, true},
 		{"rules apply", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("User-agent: sitewarm\nDisallow: /page\n"))
