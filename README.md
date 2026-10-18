@@ -41,29 +41,62 @@ sitewarm scan --top-from top.csv
 column (resolved with `--base-url`). Rows are in priority order; `--top N`
 keeps the first N (default 50).
 
+Or read the URLs from a sitemap:
+
+```
+sitewarm scan --from-sitemap https://example.com/sitemap.xml
+```
+
+Sitemap indexes are followed, nested ones included, and gzip-compressed
+sitemaps (`.gz`) are read. URLs keep their sitemap order and `--top N` keeps
+the first N allowed by `robots.txt` (see below). Pass exactly one of
+`--top-from` or `--from-sitemap`.
+
+With `--from-sitemap`, sitemap URLs are checked against the site's
+`robots.txt` first: the `sitewarm` group applies, or `*` when there is no
+`sitewarm` group. A disallowed URL is not requested and is reported as
+`skipped-robots`. Blocked URLs do not count toward `--top`: `--top 50` warms
+50 allowed URLs. The blocked URLs met before the 50th allowed one are reported
+as `skipped-robots`; reading stops there, so the rest of the sitemap is not
+fetched, checked or reported. A
+`robots.txt` that returns any 4xx status (401, 403, 404, 410...) allows
+everything, as RFC 9309 says; a 5xx status, a timeout or a network or DNS error
+skips every URL of that host, with a warning.
+`skipped-robots` does not fail the run unless it is in `--fail-on`, but a run
+where no URL was verified always fails. `--ignore-robots` turns the check off.
+A `--top-from` list is your own choice of pages, so `robots.txt` is not read
+for it.
+
 Each URL is requested with two profiles, `desktop` and `mobile`, that send the
 navigation headers of current Chrome stable (Windows and Android) plus a
 `sitewarm/<version>` token in the User-Agent. sitewarm never impersonates a
 crawler. Requests are spread with `--concurrency 4` and a global `--rps 5`
-that also covers retries. A `miss` or `stale` URL is requested again every
+that also covers retries and the sitemap and `robots.txt` fetches. A `miss` or `stale` URL is requested again every
 `--retry-interval 10s` until it is a `hit` or `--max-wait 5m` passes. The whole
-run stops at `--run-timeout 15m`.
+run, including reading a sitemap and `robots.txt`, stops at
+`--run-timeout 15m`.
 
 | Flag | Default | |
 |---|---|---|
 | `--top-from` | | CSV with the URLs |
+| `--from-sitemap` | | sitemap or sitemap index URL |
+| `--ignore-robots` | | with `--from-sitemap`, do not check `robots.txt` |
 | `--base-url` | | base for a `path` column |
-| `--top` | 50 | URLs to warm |
+| `--top` | 50 | URLs to warm (allowed URLs, with `--from-sitemap`) |
 | `--concurrency` | 4 | requests in flight |
-| `--rps` | 5 | global requests per second |
+| `--rps` | 5 | global requests per second, sitemap and `robots.txt` included |
 | `--retry-interval` | 10s | wait between attempts |
 | `--max-wait` | 5m | retry window per URL (`0` = one request) |
 | `--run-timeout` | 15m | cap for the whole run |
 | `--fail-on` | `miss,client-error,error,incomplete,noindex,redirect-error` | states that fail the run |
 | `--accept-language` | `en-US,en;q=0.9` | for both profiles |
 | `--cookie-hosts` | | hosts that may receive cookies |
-| `--format` | `table` | stdout format: `table` or `json` |
+| `--format` | `table` | stdout format: `table`, `json` or `csv` |
 | `--report` | | also write the JSON report to a file |
+
+`--format csv` writes the columns `url,status,state`, one row per URL and
+profile, so each URL appears once per profile. `status` is the HTTP status
+code, empty when there was no response.
 
 ### States
 
@@ -80,6 +113,7 @@ run stops at `--run-timeout 15m`.
 | `redirect-error` | redirect loop, more than 5 hops, or a hop to another host |
 | `incomplete` | not finished before `--run-timeout` or an interrupt |
 | `unknown` | the CDN does not expose a cache status |
+| `skipped-robots` | a sitemap URL not requested because of `robots.txt` |
 
 Supported CDNs: Cloudflare (`cf-cache-status`), Vercel (`x-vercel-cache`),
 CloudFront, Fastly (the last value of `x-cache`, the edge that answered) and
@@ -105,6 +139,26 @@ are sent only to `--cookie-hosts` and only over HTTPS. A cookie without
 configuration, `130`/`143` interrupted by SIGINT/SIGTERM. An interrupt or the
 run timeout still writes the report, with unfinished URLs as `incomplete`;
 a second Ctrl-C exits at once.
+
+### Coming from the Python version
+
+What stays: sitemap indexes, including nested ones and `.gz` sitemaps, are
+still followed (now with `--from-sitemap`), and results can still be exported
+to CSV (now with `--format csv`, to stdout).
+
+What changes on purpose:
+
+- **User-Agent.** Requests use real Chrome navigation headers plus a
+  `sitewarm/<version>` token. The Python version sent a Googlebot
+  User-Agent; sitewarm never impersonates a crawler.
+- **Input.** A CSV of your top pages (`--top-from`) is the main input; the
+  sitemap is optional. With a sitemap, `robots.txt` is respected by default.
+- **Flags.** `-s/--site`, `-d/--depth`, `-c/--concurrency`, `-o/--output` and
+  `-q/--quiet` are gone. Use `sitewarm scan` with `--from-sitemap`,
+  `--concurrency`, `--format csv` and `--fail-on`.
+- **CSV columns.** `url,status,state` instead of
+  `domain,http_code,time,robots_status,cache_control`. Timings, indexability
+  and cache headers are in the JSON report (`--format json` or `--report`).
 
 ### Limitations
 
