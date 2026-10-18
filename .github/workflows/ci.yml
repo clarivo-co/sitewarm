@@ -26,6 +26,9 @@ jobs:
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
       - run: go vet ./...
       - run: go test -race ./...
+      - name: scripts
+        if: runner.os == 'Linux'
+        run: bash scripts/t2_test.sh
 
   build:
     name: build (${{ matrix.goos }}/${{ matrix.goarch }})
