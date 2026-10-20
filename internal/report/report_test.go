@@ -127,6 +127,53 @@ func TestBuildNoneVerifiedFails(t *testing.T) {
 	}
 }
 
+// The verdict must not claim a verified cache unless a cache state was
+// observed. Exit semantics are unchanged: unknown is not in the default
+// --fail-on, so an all-unknown run still passes.
+func TestBuildVerdictWording(t *testing.T) {
+	failOn, _ := ParseFailOn(DefaultFailOn)
+	p := verify.Pair{URL: "https://example.com/"}
+	obs := probe.Observation{Status: 200, Indexability: probe.Indexable}
+	out := func(st cdn.State) verify.Outcome {
+		return verify.Outcome{Pair: p, State: st, GotHit: st == cdn.Hit, Last: &obs, First: &obs}
+	}
+	tests := []struct {
+		name       string
+		outs       []verify.Outcome
+		passed     bool
+		verdict    string
+		notContain string
+	}{
+		{"all unknown", []verify.Outcome{out(cdn.Unknown), out(cdn.Unknown)}, true,
+			"no cache state observed: all 2 results are unknown; deploy freshness not verified", "cache verified"},
+		{"mixed hit and unknown", []verify.Outcome{out(cdn.Hit), out(cdn.Unknown)}, true,
+			verdictPass, ""},
+		{"all hit", []verify.Outcome{out(cdn.Hit), out(cdn.Hit)}, true,
+			verdictPass, ""},
+		{"all miss", []verify.Outcome{out(cdn.Miss), out(cdn.Miss)}, false,
+			"failed: 2 of 2 results are in --fail-on", "cache verified"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Report{}
+			Build(r, tt.outs, failOn)
+			if r.Summary.Passed != tt.passed || r.Summary.Verdict != tt.verdict {
+				t.Fatalf("passed=%v verdict=%q, want passed=%v verdict=%q", r.Summary.Passed, r.Summary.Verdict, tt.passed, tt.verdict)
+			}
+			if tt.notContain != "" && strings.Contains(r.Summary.Verdict, tt.notContain) {
+				t.Fatalf("verdict %q must not contain %q", r.Summary.Verdict, tt.notContain)
+			}
+			if tt.name == "all unknown" {
+				for _, e := range r.Results {
+					if e.State != cdn.Unknown {
+						t.Fatalf("unknown must stay unknown, got %s", e.State)
+					}
+				}
+			}
+		})
+	}
+}
+
 // Regression for the Python CLI's CSV export.
 func TestWriteCSV(t *testing.T) {
 	r := &Report{Results: []Entry{
