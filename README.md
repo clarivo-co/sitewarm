@@ -25,11 +25,45 @@
 > sitemap crawler lives in [`legacy/`](legacy/) and is frozen at tag
 > [`v0-python`](https://github.com/clarivo-co/sitewarm/tree/v0-python).
 
-## Build
+## Install
+
+Download the archive for your platform from the
+[releases page](https://github.com/clarivo-co/sitewarm/releases): Linux, macOS
+and Windows, on amd64 and arm64. Each release has a `checksums.txt` with the
+SHA-256 of every archive. Check the download before you unpack it:
+
+```
+VERSION=0.1.0   # the release you want, without the leading v
+FILE=sitewarm_${VERSION}_linux_amd64.tar.gz
+curl -fsSLO https://github.com/clarivo-co/sitewarm/releases/download/v${VERSION}/${FILE}
+curl -fsSLO https://github.com/clarivo-co/sitewarm/releases/download/v${VERSION}/checksums.txt
+grep " ${FILE}\$" checksums.txt | sha256sum -c -     # macOS: shasum -a 256 -c -
+tar -xzf "$FILE" sitewarm
+./sitewarm --version
+```
+
+Archive names are `sitewarm_<version>_<os>_<arch>.tar.gz` (`.zip` on Windows),
+with `<os>` one of `linux`, `darwin`, `windows` and `<arch>` one of `amd64`,
+`arm64`. On Windows, compare `(Get-FileHash <file> -Algorithm SHA256).Hash` with
+the line for that file in `checksums.txt`. Each archive also holds `LICENSE`
+and this README.
+
+With Go 1.26 or newer you can install from source instead:
+
+```
+go install github.com/clarivo-co/sitewarm/cmd/sitewarm@latest
+```
+
+A binary built this way reports its version as `dev`; the release archives
+report the release version.
+
+### Build from source
 
 ```
 go build -o sitewarm ./cmd/sitewarm
 ```
+
+`sitewarm --version` prints the version.
 
 ## Usage
 
@@ -94,6 +128,11 @@ run, including reading a sitemap and `robots.txt`, stops at
 | `--format` | `table` | stdout format: `table`, `json` or `csv` |
 | `--report` | | also write the JSON report to a file |
 
+`--report <file>` does not replace the stdout output: the run prints the
+`--format` output (the table by default) and also writes the full JSON report
+to the file, even when the run fails, is interrupted or times out. It is not
+written when the arguments are invalid.
+
 `--format csv` writes the columns `url,status,state`, one row per URL and
 profile, so each URL appears once per profile. `status` is the HTTP status
 code, empty when there was no response.
@@ -114,6 +153,20 @@ code, empty when there was no response.
 | `incomplete` | not finished before `--run-timeout` or an interrupt |
 | `unknown` | the CDN does not expose a cache status |
 | `skipped-robots` | a sitemap URL not requested because of `robots.txt` |
+
+### Failing on `noindex`
+
+`noindex` is not a cache state but a `--fail-on` token, and it is in the
+default. A result fails with it when the final response of a successful
+request says the page should not be indexed: an `X-Robots-Tag` header, or a
+`robots` or `googlebot` meta tag in the first 256 KB of an HTML page, with
+`noindex`. A body that cannot be decoded (`indexability-error`) also fails with
+`noindex`, because the page cannot be shown to be indexable. The outcome of
+the check is the `indexability` field of the JSON report and the `INDEX`
+column of the table: `indexable`, `noindex`, `not-html`,
+`indexability-inconclusive` (no `</head>` within 256 KB) or
+`indexability-error`. `indexability-inconclusive` is also a `--fail-on` token;
+it is not in the default.
 
 Supported CDNs: Cloudflare (`cf-cache-status`), Vercel (`x-vercel-cache`),
 CloudFront, Fastly (the last value of `x-cache`, the edge that answered) and
@@ -139,6 +192,83 @@ are sent only to `--cookie-hosts` and only over HTTPS. A cookie without
 configuration, `130`/`143` interrupted by SIGINT/SIGTERM. An interrupt or the
 run timeout still writes the report, with unfinished URLs as `incomplete`;
 a second Ctrl-C exits at once.
+
+### Using it in CI
+
+Run it after the deploy has finished and the site is live. The exit code is the
+result: a step that runs `sitewarm scan` fails when a result is in `--fail-on`
+(see [Exit codes](#exit-codes)).
+
+Any shell step:
+
+```
+sitewarm scan --from-sitemap https://example.com/sitemap.xml --top 50 \
+  --report sitewarm.json
+```
+
+GitHub Actions, installing a release and keeping the report:
+
+```yaml
+- name: Warm and verify the cache
+  env:
+    SITEWARM_VERSION: 0.1.0   # the release you want, without the leading v
+  run: |
+    base=https://github.com/clarivo-co/sitewarm/releases/download/v${SITEWARM_VERSION}
+    file=sitewarm_${SITEWARM_VERSION}_linux_amd64.tar.gz
+    curl -fsSLO "$base/$file"
+    curl -fsSLO "$base/checksums.txt"
+    grep " ${file}\$" checksums.txt | sha256sum -c -
+    tar -xzf "$file" sitewarm
+    ./sitewarm scan --from-sitemap https://example.com/sitemap.xml \
+      --report sitewarm.json
+- uses: actions/upload-artifact@v7
+  if: always()
+  with:
+    name: sitewarm-report
+    path: sitewarm.json
+```
+
+To build from source instead, add `actions/setup-go` (Go 1.26 or newer) and
+replace the install lines with
+`go install github.com/clarivo-co/sitewarm/cmd/sitewarm@latest`.
+
+The run needs outbound HTTPS to your site and, with `--from-sitemap`, to its
+`robots.txt`. A run from a CI network is verified at the CDN PoP that serves
+that network (see [Limitations](#limitations)).
+
+### JSON report
+
+`--format json` writes the report to stdout and `--report <file>` writes it to
+a file. Top-level fields:
+
+| Field | Meaning |
+|---|---|
+| `tool`, `version` | `sitewarm` and the version that ran |
+| `started_at`, `finished_at`, `duration_ms` | timing of the run |
+| `stopped` | present when the run ended early: `run-timeout`, `SIGINT`, `SIGTERM` or `canceled` |
+| `settings` | the options used: `source`, `top`, `profiles`, `concurrency`, `rps`, `retry_interval`, `max_wait`, `run_timeout`, `fail_on`, and `ignore_robots` when set |
+| `summary` | `total`, `by_state` (count per state), `hit_ratio`, `failed`, `passed`, `verdict` |
+| `warnings` | standing limitations plus any warning from reading the sitemap |
+| `results` | one entry per URL and profile |
+
+Each entry in `results`:
+
+| Field | Meaning |
+|---|---|
+| `url`, `profile` | the requested URL and `desktop` or `mobile` |
+| `final_url`, `redirects` | where it ended up, and the hops (`url`, `status`) |
+| `initial_state`, `state` | state of the first request and of the last one |
+| `failed` | the result is in `--fail-on` |
+| `attempts`, `http_status` | requests made, status of the last one |
+| `cdn`, `cache_status_raw`, `pop`, `other_cdns` | CDN that decided, its raw cache header value, the PoP when exposed, other CDNs seen |
+| `ttfb_first_ms`, `ttfb_final_ms`, `time_to_hit_ms` | milliseconds, `null` when not measured |
+| `cache_control`, `age`, `vary` | response headers |
+| `set_cookie` | whether the response had a `Set-Cookie` header (the value is never reported) |
+| `indexability`, `indexability_detail` | see [Failing on `noindex`](#failing-on-noindex) |
+| `detail`, `warnings` | explanation of the state, and per-result warnings |
+
+Fields with no value are left out, except `ttfb_first_ms`, `ttfb_final_ms`,
+`time_to_hit_ms` (`null`), `set_cookie`, `failed` and `attempts`.
 
 ### Coming from the Python version
 
