@@ -198,11 +198,13 @@ func Build(r *Report, outcomes []verify.Outcome, failOn FailOn) {
 		s.Verdict = "failed: no URL was verified"
 	case noneVerified:
 		s.Verdict = fmt.Sprintf("failed: no URL was verified; all %d results are skipped-robots", s.Total)
-	case s.ByState[cdn.Unknown] == s.Total:
-		// Every CDN status was unrecognized or absent (for example a site
-		// with no CDN): unknown stays unknown, and no cache was verified.
-		// The run still passes: unknown is not in the default --fail-on.
-		s.Verdict = fmt.Sprintf("no cache state observed: all %d results are unknown; deploy freshness not verified", s.Total)
+	case s.ByState[cdn.Unknown] == s.Total-s.ByState[cdn.SkippedRobots]:
+		// Every requested result was unrecognized or absent (for example a
+		// site with no CDN): unknown stays unknown, and no cache was
+		// verified. Skipped-robots results were never requested, so they
+		// do not count. The run still passes: unknown is not in the
+		// default --fail-on.
+		s.Verdict = fmt.Sprintf("no cache state observed: all %d requested results are unknown; deploy freshness not verified", s.ByState[cdn.Unknown])
 	default:
 		s.Verdict = verdictPass
 	}

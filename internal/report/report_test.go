@@ -145,7 +145,9 @@ func TestBuildVerdictWording(t *testing.T) {
 		notContain string
 	}{
 		{"all unknown", []verify.Outcome{out(cdn.Unknown), out(cdn.Unknown)}, true,
-			"no cache state observed: all 2 results are unknown; deploy freshness not verified", "cache verified"},
+			"no cache state observed: all 2 requested results are unknown; deploy freshness not verified", "cache verified"},
+		{"all unknown with skipped-robots", []verify.Outcome{out(cdn.Unknown), out(cdn.SkippedRobots), out(cdn.Unknown)}, true,
+			"no cache state observed: all 2 requested results are unknown; deploy freshness not verified", "cache verified"},
 		{"mixed hit and unknown", []verify.Outcome{out(cdn.Hit), out(cdn.Unknown)}, true,
 			verdictPass, ""},
 		{"all hit", []verify.Outcome{out(cdn.Hit), out(cdn.Hit)}, true,
@@ -163,9 +165,9 @@ func TestBuildVerdictWording(t *testing.T) {
 			if tt.notContain != "" && strings.Contains(r.Summary.Verdict, tt.notContain) {
 				t.Fatalf("verdict %q must not contain %q", r.Summary.Verdict, tt.notContain)
 			}
-			if tt.name == "all unknown" {
+			if strings.HasPrefix(tt.name, "all unknown") {
 				for _, e := range r.Results {
-					if e.State != cdn.Unknown {
+					if e.State != cdn.Unknown && e.State != cdn.SkippedRobots {
 						t.Fatalf("unknown must stay unknown, got %s", e.State)
 					}
 				}
