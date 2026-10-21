@@ -191,24 +191,29 @@ func Build(r *Report, outcomes []verify.Outcome, failOn FailOn) {
 	// as one stopped while the sitemap was being read.
 	noneVerified := s.ByState[cdn.SkippedRobots] == s.Total
 	s.Passed = s.Failed == 0 && !noneVerified
+	s.Verdict = verdict(s, noneVerified)
+	r.Summary = s
+}
+
+// verdict is the one-line summary of a run.
+func verdict(s Summary, noneVerified bool) string {
 	switch {
 	case s.Failed > 0:
-		s.Verdict = fmt.Sprintf("failed: %d of %d results are in --fail-on", s.Failed, s.Total)
+		return fmt.Sprintf("failed: %d of %d results are in --fail-on", s.Failed, s.Total)
 	case s.Total == 0:
-		s.Verdict = "failed: no URL was verified"
+		return "failed: no URL was verified"
 	case noneVerified:
-		s.Verdict = fmt.Sprintf("failed: no URL was verified; all %d results are skipped-robots", s.Total)
+		return fmt.Sprintf("failed: no URL was verified; all %d results are skipped-robots", s.Total)
 	case s.ByState[cdn.Unknown] == s.Total-s.ByState[cdn.SkippedRobots]:
 		// Every requested result was unrecognized or absent (for example a
 		// site with no CDN): unknown stays unknown, and no cache was
 		// verified. Skipped-robots results were never requested, so they
 		// do not count. The run still passes: unknown is not in the
 		// default --fail-on.
-		s.Verdict = fmt.Sprintf("no cache state observed: all %d requested results are unknown; deploy freshness not verified", s.ByState[cdn.Unknown])
+		return fmt.Sprintf("no cache state observed: all %d requested results are unknown; deploy freshness not verified", s.ByState[cdn.Unknown])
 	default:
-		s.Verdict = verdictPass
+		return verdictPass
 	}
-	r.Summary = s
 }
 
 // SkippedOutcome is the outcome of a pair that robots.txt kept from being
