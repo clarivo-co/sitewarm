@@ -19,7 +19,13 @@ fail() {
 }
 
 need() {
-	command -v "$1" >/dev/null 2>&1 || fail "$1 is required"
+	tool=$1
+	command -v "$tool" >/dev/null 2>&1 || fail "$tool is required"
+}
+
+# Every download uses HTTPS only, including after redirects.
+fetch() {
+	curl --proto '=https' --tlsv1.2 -fsSL "$@"
 }
 
 need curl
@@ -41,11 +47,12 @@ esac
 version=${SITEWARM_VERSION:-}
 if [ -z "$version" ]; then
 	# /releases/latest skips pre-releases, so this is the latest stable one.
-	url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$repo/releases/latest") ||
+	url=$(fetch -I -o /dev/null -w '%{url_effective}' "https://github.com/$repo/releases/latest") ||
 		fail "could not look up the latest release; set SITEWARM_VERSION"
 	version=${url##*/v}
 	case $version in
 	*[!0-9A-Za-z.-]* | "") fail "no stable release yet; set SITEWARM_VERSION (for example 1.0.0-rc.1)" ;;
+	*) ;;
 	esac
 fi
 version=${version#v}
@@ -57,8 +64,8 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
 echo "Downloading sitewarm $version for $os/$arch"
-curl -fsSL -o "$tmp/$file" "$base/$file" || fail "could not download $base/$file"
-curl -fsSL -o "$tmp/checksums.txt" "$base/checksums.txt" || fail "could not download checksums.txt"
+fetch -o "$tmp/$file" "$base/$file" || fail "could not download $base/$file"
+fetch -o "$tmp/checksums.txt" "$base/checksums.txt" || fail "could not download checksums.txt"
 
 want=$(awk -v f="$file" '$2 == f { print $1 }' "$tmp/checksums.txt")
 [ -n "$want" ] || fail "$file is not listed in checksums.txt"
