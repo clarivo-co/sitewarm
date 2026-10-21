@@ -165,14 +165,19 @@ func TestBuildVerdictWording(t *testing.T) {
 			if tt.notContain != "" && strings.Contains(r.Summary.Verdict, tt.notContain) {
 				t.Fatalf("verdict %q must not contain %q", r.Summary.Verdict, tt.notContain)
 			}
-			if strings.HasPrefix(tt.name, "all unknown") {
-				for _, e := range r.Results {
-					if e.State != cdn.Unknown && e.State != cdn.SkippedRobots {
-						t.Fatalf("unknown must stay unknown, got %s", e.State)
-					}
-				}
-			}
+			requireStatesKept(t, r, tt.outs)
 		})
+	}
+}
+
+// requireStatesKept fails when Build changed a result state, so unknown
+// stays unknown whatever the verdict says.
+func requireStatesKept(t *testing.T, r *Report, outs []verify.Outcome) {
+	t.Helper()
+	for i, e := range r.Results {
+		if e.State != outs[i].State {
+			t.Fatalf("result %d state is %s, want %s", i, e.State, outs[i].State)
+		}
 	}
 }
 
