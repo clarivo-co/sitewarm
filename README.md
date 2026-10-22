@@ -9,7 +9,6 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-F0602A?style=flat" alt="License: Apache-2.0" /></a>
   <img src="https://img.shields.io/badge/Linux%20%7C%20macOS%20%7C%20Windows-amd64%20%7C%20arm64-4493F8?style=flat" alt="Linux, macOS and Windows on amd64 and arm64" />
   <a href="https://github.com/sponsors/ernestova"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-EA4AAA?style=flat&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor sitewarm" /></a>
-  <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fernestova%2Fsitemap_warmup?ref=badge_shield"><img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fernestova%2Fsitemap_warmup.svg?type=shield" alt="FOSSA status" /></a>
 </p>
 
 <p align="center">
@@ -21,13 +20,25 @@
   <img src="docs/assets/demo.png" alt="sitewarm scan output: six URL and profile pairs on Cloudflare and Vercel, all hit" width="960" />
 </p>
 
-> **Work in progress.** sitewarm is a Go rewrite. The original Python
-> sitemap crawler lives in [`legacy/`](legacy/) and is frozen at tag
+> sitewarm is a Go rewrite. The original Python sitemap crawler lives in
+> [`legacy/`](legacy/) and is frozen at tag
 > [`v0-python`](https://github.com/clarivo-co/sitewarm/tree/v0-python).
+> See the [changelog](CHANGELOG.md).
 
 ## Install
 
-Download the archive for your platform from the
+On Linux or macOS, one line installs the latest stable release into
+`~/.local/bin` after checking its SHA-256:
+
+```
+curl -fsSL https://raw.githubusercontent.com/clarivo-co/sitewarm/master/scripts/install.sh | sh
+```
+
+Set `SITEWARM_VERSION` to pick a release and `SITEWARM_INSTALL_DIR` to pick the
+directory. Read [`scripts/install.sh`](scripts/install.sh) first if you prefer;
+it is short.
+
+Or download the archive for your platform from the
 [releases page](https://github.com/clarivo-co/sitewarm/releases): Linux, macOS
 and Windows, on amd64 and arm64. Each release has a `checksums.txt` with the
 SHA-256 of every archive. Check the download before you unpack it:

@@ -1,0 +1,40 @@
+# Changelog
+
+All notable changes to sitewarm are listed here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+[Semantic Versioning](https://semver.org/). The Go packages under `pkg/` are
+the public API.
+
+## [1.0.0] - Unreleased
+
+First stable release of the Go rewrite. The original Python sitemap crawler
+is frozen at tag [`v0-python`](https://github.com/clarivo-co/sitewarm/tree/v0-python).
+
+### Added
+
+- `sitewarm scan`: warms your top pages through the CDN after a deploy and
+  verifies the cache state per URL and browser profile (desktop and mobile)
+  on Cloudflare, Vercel, CloudFront, Fastly and Akamai.
+- `--top-from` to read a prioritised CSV of URLs or paths, and
+  `--from-sitemap` to read a sitemap (indexes, nested indexes and `.gz`
+  included) filtered by `robots.txt`.
+- `--format` (table, json, csv) and `--report <file>` for a machine-readable
+  report, and `--fail-on` to choose which states fail the run.
+- Honest requests: a `sitewarm/<version>` token in the User-Agent, global
+  rate limit, bounded concurrency, retries of `miss` and `stale` URLs and a
+  run timeout. sitewarm never impersonates a crawler.
+- Release archives for Linux, macOS and Windows on amd64 and arm64, with
+  `checksums.txt`, built by GoReleaser from a tag.
+- `scripts/install.sh`, a checksum-verifying installer for Linux and macOS.
+- `scripts/t2.sh`, to measure warming against a control group.
+- README sections for installation, CI usage and the JSON report schema.
+
+### Fixed
+
+- A run where every result is `unknown` (for example a site with no CDN) no
+  longer says the cache is verified. Results skipped by `robots.txt` are not
+  counted as requested.
+
+## [1.0.0-rc.1] - 2026-10-21
+
+First tagged release of the Go rewrite, published as a pre-release.
