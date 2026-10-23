@@ -5,7 +5,7 @@ All notable changes to sitewarm are listed here. The format follows
 [Semantic Versioning](https://semver.org/). The Go packages under `pkg/` are
 the public API.
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-10-22
 
 First stable release of the Go rewrite. The original Python sitemap crawler
 is frozen at tag [`v0-python`](https://github.com/clarivo-co/sitewarm/tree/v0-python).
