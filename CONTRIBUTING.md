@@ -31,6 +31,11 @@ runs in virtual time.
 random warmed/control split (usage in the script header). Its tests need
 bash and jq: `bash scripts/t2_test.sh`.
 
+Shell scripts are checked with `shellcheck scripts/*.sh`. `curl` in a script
+uses `--proto '=https'`, and a `case` has a `*)` branch. `scripts/check_boundary.sh`
+fails when the repository holds private paths, ADR numbers, prices, local
+absolute paths or secrets; a line may opt out with `boundary:allow`.
+
 ### Adding or fixing a CDN
 
 CDN detection lives in `internal/cdn`. Add a test with the real response
@@ -56,7 +61,8 @@ linux, darwin and windows for amd64 and arm64, packs them as `.tar.gz`
 (`.zip` on Windows) with `checksums.txt` (SHA-256), and publishes a GitHub
 release. A tag with a suffix after the patch number is published as a
 pre-release. The version in the tag is embedded in `sitewarm --version` and
-the User-Agent. Version tags are never moved or reused.
+the User-Agent. Version tags are never moved or reused. The order of steps
+(merge, tag, then bump the README) is in [docs/RELEASING.md](docs/RELEASING.md).
 
 Check the config locally before changing it:
 
