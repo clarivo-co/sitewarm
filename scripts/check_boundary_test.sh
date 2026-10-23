@@ -22,7 +22,7 @@ repo() {
 expect() {
 	local name=$1 want=$2 needle=$3 got=0 out
 	out=$(bash "$check" "$dir/$name" 2>&1) || got=$?
-	[ "$got" = "$want" ] || { fail "$name: exit $got, want $want"; echo "$out"; return; }
+	[[ $got == "$want" ]] || { fail "$name: exit $got, want $want"; echo "$out"; return; }
 	case $out in *"$needle"*) echo "ok: $name" ;; *) fail "$name: output lacks \"$needle\""; echo "$out" ;; esac
 }
 
@@ -47,13 +47,19 @@ expect secret 1 "sk_(live|test)"
 repo private-path docs/adr/0001.md 'anything'
 expect private-path 1 "private path"
 
+repo nested-claude-md internal/x/CLAUDE.md 'anything'
+expect nested-claude-md 1 "private path"
+
+repo nested-claude-dir sub/.claude/settings.json '{}'
+expect nested-claude-dir 1 "private path"
+
 repo allowed notes.md 'ADR 0002 is mentioned here boundary:allow'
 expect allowed 0 "boundary: ok"
 
 repo legacy-skipped legacy/old.md 'cd /Users/someone/x'
 expect legacy-skipped 0 "boundary: ok"
 
-if [ "$failures" -gt 0 ]; then
+if [[ $failures -gt 0 ]]; then
 	echo "$failures failure(s)"
 	exit 1
 fi

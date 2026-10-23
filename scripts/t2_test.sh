@@ -41,8 +41,9 @@ report() {
 	echo
 } >top.csv
 expect "split deals 11 unique rows 6/5" 0 "6 URLs in warmed.csv, 5 in control.csv" bash "$t2" split top.csv
-[ "$(head -n 1 warmed.csv)" = "url,clicks" ] && [ "$(head -n 1 control.csv)" = "url,clicks" ] ||
+if [ "$(head -n 1 warmed.csv)" != "url,clicks" ] || [ "$(head -n 1 control.csv)" != "url,clicks" ]; then
 	fail "split keeps the header in both files"
+fi
 [ "$(tail -n +2 warmed.csv | cat - <(tail -n +2 control.csv) | sort | uniq -d)" = "" ] ||
 	fail "split puts no URL in both groups"
 [ "$(tail -n +2 warmed.csv | cat - <(tail -n +2 control.csv) | wc -l | tr -d ' ')" = 11 ] ||

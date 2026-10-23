@@ -16,7 +16,7 @@ set -euo pipefail
 root=${1:-$(cd "$(dirname "$0")/.." && pwd)}
 cd "$root"
 
-paths='^(docs/adr/|docs/plans?/|plans?/|\.claude/|CLAUDE\.md$)'
+paths='^(docs/adr/|docs/plans?/|plans?/)|(^|/)(\.claude/|CLAUDE\.md$)'
 content=(
 	'sitemap_saas'
 	'\bADR[ -]?[0-9]{3,4}\b'
@@ -33,6 +33,7 @@ scanned=()
 while IFS= read -r -d '' f; do
 	case $f in
 	legacy/* | scripts/check_boundary.sh | scripts/check_boundary_test.sh) continue ;;
+	*) ;;
 	esac
 	if [[ $f =~ $paths ]]; then
 		echo "boundary: $f is a private path"
@@ -43,16 +44,16 @@ while IFS= read -r -d '' f; do
 done < <(git ls-files -z)
 
 for pat in "${content[@]}"; do
-	[ "${#scanned[@]}" -gt 0 ] || break
+	[[ ${#scanned[@]} -gt 0 ]] || break
 	hits=$(grep -IHnE -e "$pat" -- "${scanned[@]}" | grep -v 'boundary:allow' || true)
-	if [ -n "$hits" ]; then
+	if [[ -n $hits ]]; then
 		echo "boundary: pattern $pat"
 		echo "  ${hits//$'\n'/$'\n'  }"
 		failures=$((failures + 1))
 	fi
 done
 
-if [ "$failures" -gt 0 ]; then
+if [[ $failures -gt 0 ]]; then
 	echo "boundary: $failures problem(s); this repository is public"
 	exit 1
 fi
