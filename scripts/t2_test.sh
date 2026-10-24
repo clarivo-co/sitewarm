@@ -41,15 +41,18 @@ report() {
 	echo
 } >top.csv
 expect "split deals 11 unique rows 6/5" 0 "6 URLs in warmed.csv, 5 in control.csv" bash "$t2" split top.csv
-[ "$(head -n 1 warmed.csv)" = "url,clicks" ] && [ "$(head -n 1 control.csv)" = "url,clicks" ] ||
+if [ "$(head -n 1 warmed.csv)" != "url,clicks" ] || [ "$(head -n 1 control.csv)" != "url,clicks" ]; then
 	fail "split keeps the header in both files"
+fi
 [ "$(tail -n +2 warmed.csv | cat - <(tail -n +2 control.csv) | sort | uniq -d)" = "" ] ||
 	fail "split puts no URL in both groups"
 [ "$(tail -n +2 warmed.csv | cat - <(tail -n +2 control.csv) | wc -l | tr -d ' ')" = 11 ] ||
 	fail "split keeps every unique URL"
 T2_SEED=7 bash "$t2" split top.csv a1.csv b1.csv >/dev/null
 T2_SEED=7 bash "$t2" split top.csv a2.csv b2.csv >/dev/null
-cmp -s a1.csv a2.csv && cmp -s b1.csv b2.csv || fail "T2_SEED makes the split reproducible"
+if ! { cmp -s a1.csv a2.csv && cmp -s b1.csv b2.csv; }; then
+	fail "T2_SEED makes the split reproducible"
+fi
 printf 'loc\nhttps://e.test/\n' >bad.csv
 expect "split rejects a file without url/path header" 2 "needs a header" bash "$t2" split bad.csv
 

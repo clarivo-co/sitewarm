@@ -127,7 +127,7 @@ compare_reports() {
 }
 
 case ${1:-} in
-split) [ $# -ge 2 ] && [ $# -le 4 ] || usage; shift; split_list "$@" ;;
+split) (( $# >= 2 && $# <= 4 )) || usage; shift; split_list "$@" ;;
 compare) [ $# -eq 3 ] || usage; compare_reports "$2" "$3" ;;
 *) usage ;;
 esac
