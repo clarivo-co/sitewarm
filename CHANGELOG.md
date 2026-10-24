@@ -5,7 +5,7 @@ All notable changes to sitewarm are listed here. The format follows
 [Semantic Versioning](https://semver.org/). The Go packages under `pkg/` are
 the public API.
 
-## [Unreleased]
+## [1.0.1] - 2026-10-24
 
 ### Changed
 
