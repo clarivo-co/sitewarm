@@ -11,9 +11,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/clarivo-co/sitewarm/internal/cdn"
-	"github.com/clarivo-co/sitewarm/internal/probe"
-	"github.com/clarivo-co/sitewarm/internal/verify"
+	"github.com/sitewarm/sitewarm/internal/cdn"
+	"github.com/sitewarm/sitewarm/internal/probe"
+	"github.com/sitewarm/sitewarm/internal/verify"
 )
 
 // Tokens accepted by --fail-on besides the cache states.

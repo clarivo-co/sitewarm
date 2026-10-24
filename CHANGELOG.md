@@ -5,6 +5,16 @@ All notable changes to sitewarm are listed here. The format follows
 [Semantic Versioning](https://semver.org/). The Go packages under `pkg/` are
 the public API.
 
+## [Unreleased]
+
+### Changed
+
+- The Go module path is now `github.com/sitewarm/sitewarm` (the repository
+  moved from `clarivo-co/sitewarm`). Import
+  `github.com/sitewarm/sitewarm/pkg/sitewarm` and install with
+  `go install github.com/sitewarm/sitewarm/cmd/sitewarm@latest`. The API of
+  `pkg/sitewarm` and the behavior of the CLI are unchanged.
+
 ## [1.0.0] - 2026-10-22
 
 First stable release of the Go rewrite. The original Python sitemap crawler

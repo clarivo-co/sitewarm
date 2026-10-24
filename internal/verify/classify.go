@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/clarivo-co/sitewarm/internal/cdn"
-	"github.com/clarivo-co/sitewarm/internal/probe"
+	"github.com/sitewarm/sitewarm/internal/cdn"
+	"github.com/sitewarm/sitewarm/internal/probe"
 )
 
 // Verdict is the state of one observation and why.

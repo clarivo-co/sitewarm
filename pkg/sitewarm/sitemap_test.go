@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clarivo-co/sitewarm/pkg/sitewarm"
+	"github.com/sitewarm/sitewarm/pkg/sitewarm"
 )
 
 // sitemapSite serves a sitemap index -> nested index -> gzip sitemap, a

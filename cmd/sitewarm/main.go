@@ -11,8 +11,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/clarivo-co/sitewarm/internal/report"
-	"github.com/clarivo-co/sitewarm/pkg/sitewarm"
+	"github.com/sitewarm/sitewarm/internal/report"
+	"github.com/sitewarm/sitewarm/pkg/sitewarm"
 	"github.com/spf13/cobra"
 )
 

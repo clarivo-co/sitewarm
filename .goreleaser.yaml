@@ -16,7 +16,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X github.com/clarivo-co/sitewarm/pkg/sitewarm.Version={{ .Version }}
+      - -s -w -X github.com/sitewarm/sitewarm/pkg/sitewarm.Version={{ .Version }}
     # Reproducible builds: file times come from the tagged commit.
     mod_timestamp: "{{ .CommitTimestamp }}"
 

@@ -12,11 +12,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/clarivo-co/sitewarm/internal/cdn"
-	"github.com/clarivo-co/sitewarm/internal/probe"
-	"github.com/clarivo-co/sitewarm/internal/report"
-	"github.com/clarivo-co/sitewarm/internal/source"
-	"github.com/clarivo-co/sitewarm/internal/verify"
+	"github.com/sitewarm/sitewarm/internal/cdn"
+	"github.com/sitewarm/sitewarm/internal/probe"
+	"github.com/sitewarm/sitewarm/internal/report"
+	"github.com/sitewarm/sitewarm/internal/source"
+	"github.com/sitewarm/sitewarm/internal/verify"
 )
 
 // Version is set at build time.
