@@ -8,7 +8,7 @@ the public API.
 ## [1.0.0] - 2026-10-22
 
 First stable release of the Go rewrite. The original Python sitemap crawler
-is frozen at tag [`v0-python`](https://github.com/clarivo-co/sitewarm/tree/v0-python).
+is frozen at tag [`v0-python`](https://github.com/sitewarm/sitewarm/tree/v0-python).
 
 ### Added
 
