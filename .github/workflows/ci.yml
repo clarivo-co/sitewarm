@@ -67,7 +67,7 @@ jobs:
           ext=""
           if [ "$GOOS" = windows ]; then ext=".exe"; fi
           go build -trimpath \
-            -ldflags "-s -w -X github.com/clarivo-co/sitewarm/pkg/sitewarm.Version=${GITHUB_SHA::7}" \
+            -ldflags "-s -w -X github.com/sitewarm/sitewarm/pkg/sitewarm.Version=${GITHUB_SHA::7}" \
             -o "dist/sitewarm_${GOOS}_${GOARCH}${ext}" ./cmd/sitewarm
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

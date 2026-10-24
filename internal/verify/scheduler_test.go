@@ -10,8 +10,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/clarivo-co/sitewarm/internal/cdn"
-	"github.com/clarivo-co/sitewarm/internal/probe"
+	"github.com/sitewarm/sitewarm/internal/cdn"
+	"github.com/sitewarm/sitewarm/internal/probe"
 )
 
 // defaults mirrors the documented CLI defaults.

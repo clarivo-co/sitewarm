@@ -62,7 +62,7 @@ and this README.
 With Go 1.26 or newer you can install from source instead:
 
 ```
-go install github.com/clarivo-co/sitewarm/cmd/sitewarm@latest
+go install github.com/sitewarm/sitewarm/cmd/sitewarm@latest
 ```
 
 A binary built this way reports its version as `dev`; the release archives
@@ -241,7 +241,7 @@ GitHub Actions, installing a release and keeping the report:
 
 To build from source instead, add `actions/setup-go` (Go 1.26 or newer) and
 replace the install lines with
-`go install github.com/clarivo-co/sitewarm/cmd/sitewarm@latest`.
+`go install github.com/sitewarm/sitewarm/cmd/sitewarm@latest`.
 
 The run needs outbound HTTPS to your site and, with `--from-sitemap`, to its
 `robots.txt`. A run from a CI network is verified at the CDN PoP that serves

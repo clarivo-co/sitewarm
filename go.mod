@@ -1,4 +1,4 @@
-module github.com/clarivo-co/sitewarm
+module github.com/sitewarm/sitewarm
 
 go 1.26.0
 

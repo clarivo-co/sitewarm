@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/clarivo-co/sitewarm/internal/cdn"
-	"github.com/clarivo-co/sitewarm/internal/probe"
+	"github.com/sitewarm/sitewarm/internal/cdn"
+	"github.com/sitewarm/sitewarm/internal/probe"
 )
 
 func TestClassifyObservation(t *testing.T) {
