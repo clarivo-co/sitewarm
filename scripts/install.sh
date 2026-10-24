@@ -2,7 +2,7 @@
 # Install a sitewarm release: download the archive for this machine, check it
 # against the release's checksums.txt, and put the binary in a directory.
 #
-#   curl -fsSL https://raw.githubusercontent.com/clarivo-co/sitewarm/master/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/sitewarm/sitewarm/master/scripts/install.sh | sh
 #
 # Environment:
 #   SITEWARM_VERSION      release to install, without the leading v
@@ -10,7 +10,7 @@
 #   SITEWARM_INSTALL_DIR  where to put the binary (default: $HOME/.local/bin)
 set -eu
 
-repo=clarivo-co/sitewarm
+repo=sitewarm/sitewarm
 dir=${SITEWARM_INSTALL_DIR:-$HOME/.local/bin}
 
 fail() {

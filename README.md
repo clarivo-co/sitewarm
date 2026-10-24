@@ -3,9 +3,9 @@
 </h1>
 
 <p align="center">
-  <a href="https://github.com/clarivo-co/sitewarm/actions/workflows/ci.yml"><img src="https://github.com/clarivo-co/sitewarm/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/clarivo-co/sitewarm/stargazers"><img src="https://img.shields.io/github/stars/clarivo-co/sitewarm?style=flat&amp;label=%E2%98%85&amp;color=F0602A" alt="GitHub stars" /></a>
-  <img src="https://img.shields.io/github/go-mod/go-version/clarivo-co/sitewarm?style=flat" alt="Go version" />
+  <a href="https://github.com/sitewarm/sitewarm/actions/workflows/ci.yml"><img src="https://github.com/sitewarm/sitewarm/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/sitewarm/sitewarm/stargazers"><img src="https://img.shields.io/github/stars/sitewarm/sitewarm?style=flat&amp;label=%E2%98%85&amp;color=F0602A" alt="GitHub stars" /></a>
+  <img src="https://img.shields.io/github/go-mod/go-version/sitewarm/sitewarm?style=flat" alt="Go version" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-F0602A?style=flat" alt="License: Apache-2.0" /></a>
   <img src="https://img.shields.io/badge/Linux%20%7C%20macOS%20%7C%20Windows-amd64%20%7C%20arm64-4493F8?style=flat" alt="Linux, macOS and Windows on amd64 and arm64" />
   <a href="https://github.com/sponsors/ernestova"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-EA4AAA?style=flat&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor sitewarm" /></a>
@@ -22,7 +22,7 @@
 
 > sitewarm is a Go rewrite. The original Python sitemap crawler lives in
 > [`legacy/`](legacy/) and is frozen at tag
-> [`v0-python`](https://github.com/clarivo-co/sitewarm/tree/v0-python).
+> [`v0-python`](https://github.com/sitewarm/sitewarm/tree/v0-python).
 > See the [changelog](CHANGELOG.md).
 
 ## Install
@@ -31,7 +31,7 @@ On Linux or macOS, one line installs the latest stable release into
 `~/.local/bin` after checking its SHA-256:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/clarivo-co/sitewarm/master/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/sitewarm/sitewarm/master/scripts/install.sh | sh
 ```
 
 Set `SITEWARM_VERSION` to pick a release and `SITEWARM_INSTALL_DIR` to pick the
@@ -39,15 +39,15 @@ directory. Read [`scripts/install.sh`](scripts/install.sh) first if you prefer;
 it is short.
 
 Or download the archive for your platform from the
-[releases page](https://github.com/clarivo-co/sitewarm/releases): Linux, macOS
+[releases page](https://github.com/sitewarm/sitewarm/releases): Linux, macOS
 and Windows, on amd64 and arm64. Each release has a `checksums.txt` with the
 SHA-256 of every archive. Check the download before you unpack it:
 
 ```
 VERSION=1.0.0   # the release you want, without the leading v
 FILE=sitewarm_${VERSION}_linux_amd64.tar.gz
-curl -fsSLO https://github.com/clarivo-co/sitewarm/releases/download/v${VERSION}/${FILE}
-curl -fsSLO https://github.com/clarivo-co/sitewarm/releases/download/v${VERSION}/checksums.txt
+curl -fsSLO https://github.com/sitewarm/sitewarm/releases/download/v${VERSION}/${FILE}
+curl -fsSLO https://github.com/sitewarm/sitewarm/releases/download/v${VERSION}/checksums.txt
 grep " ${FILE}\$" checksums.txt | sha256sum -c -     # macOS: shasum -a 256 -c -
 tar -xzf "$FILE" sitewarm
 ./sitewarm --version
@@ -62,7 +62,7 @@ and this README.
 With Go 1.26 or newer you can install from source instead:
 
 ```
-go install github.com/clarivo-co/sitewarm/cmd/sitewarm@latest
+go install github.com/sitewarm/sitewarm/cmd/sitewarm@latest
 ```
 
 A binary built this way reports its version as `dev`; the release archives
@@ -224,7 +224,7 @@ GitHub Actions, installing a release and keeping the report:
   env:
     SITEWARM_VERSION: 1.0.0   # the release you want, without the leading v
   run: |
-    base=https://github.com/clarivo-co/sitewarm/releases/download/v${SITEWARM_VERSION}
+    base=https://github.com/sitewarm/sitewarm/releases/download/v${SITEWARM_VERSION}
     file=sitewarm_${SITEWARM_VERSION}_linux_amd64.tar.gz
     curl -fsSLO "$base/$file"
     curl -fsSLO "$base/checksums.txt"
@@ -241,7 +241,7 @@ GitHub Actions, installing a release and keeping the report:
 
 To build from source instead, add `actions/setup-go` (Go 1.26 or newer) and
 replace the install lines with
-`go install github.com/clarivo-co/sitewarm/cmd/sitewarm@latest`.
+`go install github.com/sitewarm/sitewarm/cmd/sitewarm@latest`.
 
 The run needs outbound HTTPS to your site and, with `--from-sitemap`, to its
 `robots.txt`. A run from a CI network is verified at the CDN PoP that serves
@@ -309,13 +309,13 @@ in `Vary` can make a `hit` unrepresentative of real users.
 
 ## Community & support
 
-- **Bugs and ideas:** [open an issue](https://github.com/clarivo-co/sitewarm/issues/new/choose).
+- **Bugs and ideas:** [open an issue](https://github.com/sitewarm/sitewarm/issues/new/choose).
   A wrong cache state has its own form.
 - **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Security:** report privately, see [SECURITY.md](SECURITY.md).
 - **Sponsor:** sitewarm is free and open source. If it saves you a cold cache,
   [sponsor its development](https://github.com/sponsors/ernestova) or
-  [star the repo](https://github.com/clarivo-co/sitewarm) to follow along.
+  [star the repo](https://github.com/sitewarm/sitewarm) to follow along.
 
 ## License
 
