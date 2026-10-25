@@ -44,7 +44,7 @@ and Windows, on amd64 and arm64. Each release has a `checksums.txt` with the
 SHA-256 of every archive. Check the download before you unpack it:
 
 ```
-VERSION=1.0.0   # the release you want, without the leading v
+VERSION=1.0.1   # the release you want, without the leading v
 FILE=sitewarm_${VERSION}_linux_amd64.tar.gz
 curl -fsSLO https://github.com/sitewarm/sitewarm/releases/download/v${VERSION}/${FILE}
 curl -fsSLO https://github.com/sitewarm/sitewarm/releases/download/v${VERSION}/checksums.txt
@@ -222,7 +222,7 @@ GitHub Actions, installing a release and keeping the report:
 ```yaml
 - name: Warm and verify the cache
   env:
-    SITEWARM_VERSION: 1.0.0   # the release you want, without the leading v
+    SITEWARM_VERSION: 1.0.1   # the release you want, without the leading v
   run: |
     base=https://github.com/sitewarm/sitewarm/releases/download/v${SITEWARM_VERSION}
     file=sitewarm_${SITEWARM_VERSION}_linux_amd64.tar.gz
