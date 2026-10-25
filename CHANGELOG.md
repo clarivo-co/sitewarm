@@ -5,6 +5,21 @@ All notable changes to sitewarm are listed here. The format follows
 [Semantic Versioning](https://semver.org/). The Go packages under `pkg/` are
 the public API.
 
+## [1.0.2] - 2026-10-24
+
+### Fixed
+
+- `sitewarm --version` and the `sitewarm/<version>` User-Agent token now show
+  the real version for a binary installed with
+  `go install github.com/sitewarm/sitewarm/cmd/sitewarm@vX.Y.Z`. They used to
+  show `dev`. Release archives are unchanged.
+
+### Security
+
+- The frozen Python code under `legacy/` now pins `certifi` 2026.10.19
+  (the previous pin was affected by a compromised-intermediate CA advisory).
+  The Go CLI and `pkg/` are not affected.
+
 ## [1.0.1] - 2026-10-24
 
 ### Changed
