@@ -5,6 +5,16 @@ All notable changes to sitewarm are listed here. The format follows
 [Semantic Versioning](https://semver.org/). The Go packages under `pkg/` are
 the public API.
 
+## [Unreleased]
+
+### Added
+
+- With `--from-sitemap`, each entry in the JSON report has an optional
+  `lastmod`: the `<lastmod>` of the URL as written in the sitemap. It is left
+  out when the sitemap has none or the value is not a W3C datetime, and it
+  never changes a state or the verdict. The existing fields are unchanged.
+  In Go, `Result` entries have a `LastMod` string.
+
 ## [1.0.2] - 2026-10-24
 
 ### Fixed

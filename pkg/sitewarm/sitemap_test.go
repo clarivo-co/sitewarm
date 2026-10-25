@@ -38,7 +38,7 @@ func newSitemapSite(t *testing.T, robots func(w http.ResponseWriter)) *sitemapSi
 		case "/pages.xml.gz":
 			var b bytes.Buffer
 			gz := gzip.NewWriter(&b)
-			fmt.Fprintf(gz, `<urlset><url><loc>%[1]s/a</loc></url><url><loc>%[1]s/private/b</loc></url><url><loc>%[1]s/c</loc></url></urlset>`, base)
+			fmt.Fprintf(gz, `<urlset><url><loc>%[1]s/a</loc><lastmod>2026-10-01</lastmod></url><url><loc>%[1]s/private/b</loc></url><url><loc>%[1]s/c</loc></url></urlset>`, base)
 			gz.Close()
 			w.Write(b.Bytes())
 		default:
