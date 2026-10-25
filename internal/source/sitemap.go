@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // MaxSitemapBytes is the largest uncompressed sitemap accepted, the limit
@@ -53,17 +54,42 @@ func (f Fetcher) get(ctx context.Context, rawURL string) (*http.Response, error)
 // reading stops once limit URLs are accepted, so later sitemaps are not
 // fetched. On an error the URLs read so far are returned with it.
 func (f Fetcher) ReadSitemap(ctx context.Context, sitemapURL string, limit int, accept func(string) bool) ([]string, error) {
+	urls, _, err := f.ReadSitemapLastMod(ctx, sitemapURL, limit, accept)
+	return urls, err
+}
+
+// ReadSitemapLastMod is ReadSitemap that also returns the <lastmod> of each
+// page URL, keyed by URL. Only a valid W3C datetime is kept, as written; a
+// URL with no <lastmod> or an invalid one has no entry. The first
+// occurrence of a duplicate URL decides.
+func (f Fetcher) ReadSitemapLastMod(ctx context.Context, sitemapURL string, limit int, accept func(string) bool) ([]string, map[string]string, error) {
 	if _, err := parseAbsolute(sitemapURL); err != nil {
-		return nil, fmt.Errorf("--from-sitemap: %w", err)
+		return nil, nil, fmt.Errorf("--from-sitemap: %w", err)
 	}
-	w := &sitemapWalk{f: f, limit: limit, accept: accept, visited: map[string]bool{}, seen: map[string]bool{}}
+	w := &sitemapWalk{f: f, limit: limit, accept: accept, visited: map[string]bool{}, seen: map[string]bool{}, lastMod: map[string]string{}}
 	if err := w.visit(ctx, sitemapURL); err != nil && !errors.Is(err, errLimit) {
-		return w.urls, err
+		return w.urls, w.lastMod, err
 	}
 	if len(w.urls) == 0 {
-		return nil, ErrEmpty
+		return nil, nil, ErrEmpty
 	}
-	return w.urls, nil
+	return w.urls, w.lastMod, nil
+}
+
+// w3cLayouts are the forms of a W3C datetime a sitemap may use.
+var w3cLayouts = []string{
+	"2006", "2006-01", "2006-01-02",
+	"2006-01-02T15:04Z07:00", "2006-01-02T15:04:05Z07:00",
+}
+
+// validLastMod reports whether s is a W3C datetime.
+func validLastMod(s string) bool {
+	for _, layout := range w3cLayouts {
+		if _, err := time.Parse(layout, s); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 var errLimit = errors.New("limit reached")
@@ -76,6 +102,7 @@ type sitemapWalk struct {
 	visited  map[string]bool
 	seen     map[string]bool
 	urls     []string
+	lastMod  map[string]string
 }
 
 // sitemapDoc matches both <urlset> and <sitemapindex>, in any namespace.
@@ -86,7 +113,8 @@ type sitemapDoc struct {
 }
 
 type sitemapLoc struct {
-	Loc string `xml:"loc"`
+	Loc     string `xml:"loc"`
+	LastMod string `xml:"lastmod"`
 }
 
 func (w *sitemapWalk) visit(ctx context.Context, sitemapURL string) error {
@@ -122,6 +150,9 @@ func (w *sitemapWalk) visit(ctx context.Context, sitemapURL string) error {
 			}
 			w.seen[s] = true
 			w.urls = append(w.urls, s)
+			if lm := strings.TrimSpace(e.LastMod); validLastMod(lm) {
+				w.lastMod[s] = lm
+			}
 			if w.accept == nil || w.accept(s) {
 				w.accepted++
 			}

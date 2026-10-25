@@ -267,6 +267,7 @@ Each entry in `results`:
 | Field | Meaning |
 |---|---|
 | `url`, `profile` | the requested URL and `desktop` or `mobile` |
+| `lastmod` | with `--from-sitemap`, the `<lastmod>` of the URL as written in the sitemap (a W3C datetime such as `2026-10-01`); left out when the sitemap has none or it is not valid. Informational: it never changes a state or the verdict |
 | `final_url`, `redirects` | where it ended up, and the hops (`url`, `status`) |
 | `initial_state`, `state` | state of the first request and of the last one |
 | `failed` | the result is in `--fail-on` |

@@ -170,6 +170,7 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 	checkRobots := opts.FromSitemap != "" && !opts.IgnoreRobots
 
 	var urls []string
+	var lastMod map[string]string
 	var stopped error
 	skip := map[string]bool{}
 	if opts.TopFrom != "" {
@@ -208,7 +209,7 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 				return true
 			}
 		}
-		urls, err = fetcher.ReadSitemap(runCtx, opts.FromSitemap, opts.Top, accept)
+		urls, lastMod, err = fetcher.ReadSitemapLastMod(runCtx, opts.FromSitemap, opts.Top, accept)
 		if robots != nil {
 			res.Warnings = robots.Warnings()
 		}
@@ -274,6 +275,9 @@ func Scan(ctx context.Context, opts Options) (*Result, error) {
 		next++
 	}
 	report.Build(res, merged, failOn)
+	for i := range res.Results {
+		res.Results[i].LastMod = lastMod[res.Results[i].URL]
+	}
 	return res, nil
 }
 

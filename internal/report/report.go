@@ -88,8 +88,11 @@ func (f FailOn) Fails(state cdn.State, idx probe.Indexability) bool {
 
 // Entry is the report line for one URL and profile.
 type Entry struct {
-	URL          string          `json:"url"`
-	Profile      string          `json:"profile"`
+	URL     string `json:"url"`
+	Profile string `json:"profile"`
+	// LastMod is the <lastmod> of the URL in the sitemap, as written. It is
+	// informational: it never affects a state or the verdict.
+	LastMod      string          `json:"lastmod,omitempty"`
 	FinalURL     string          `json:"final_url,omitempty"`
 	Redirects    []probe.Hop     `json:"redirects,omitempty"`
 	InitialState cdn.State       `json:"initial_state,omitempty"`
