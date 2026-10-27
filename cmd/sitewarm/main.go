@@ -10,8 +10,10 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/sitewarm/sitewarm/internal/report"
+	"github.com/sitewarm/sitewarm/internal/update"
 	"github.com/sitewarm/sitewarm/pkg/sitewarm"
 	"github.com/spf13/cobra"
 )
@@ -28,10 +30,17 @@ const (
 func main() {
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	cacheDir, _ := os.UserCacheDir()
 	os.Exit(run(context.Background(), os.Args[1:], env{
 		stdout: os.Stdout, stderr: os.Stderr, getenv: os.Getenv,
 		signals: sigCh, exit: os.Exit,
+		update: update.Config{URL: update.DefaultURL, CacheDir: cacheDir, TTY: isTerminal(os.Stderr)},
 	}))
+}
+
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
 // env is everything run touches outside its arguments, so tests can
@@ -41,6 +50,9 @@ type env struct {
 	getenv         func(string) string
 	signals        <-chan os.Signal
 	exit           func(int)
+	// update is the base config of the update-available notice. The zero
+	// value (TTY false) keeps it off, which is what tests want.
+	update update.Config
 }
 
 func signalCode(s os.Signal) int {
@@ -81,6 +93,7 @@ func run(ctx context.Context, args []string, e env) int {
 func scanCmd(ctx context.Context, e env, code *int) *cobra.Command {
 	opts := sitewarm.DefaultOptions()
 	var format, reportPath string
+	var noUpdateCheck bool
 	cmd := &cobra.Command{
 		Use:   "scan (--top-from <file.csv> | --from-sitemap <url>) [flags]",
 		Short: "Warm and verify every URL with the desktop and mobile profiles",
@@ -101,6 +114,10 @@ func scanCmd(ctx context.Context, e env, code *int) *cobra.Command {
 					opts.Cookies[p] = c
 				}
 			}
+
+			uc := e.update
+			uc.Current, uc.Getenv, uc.Disabled = sitewarm.Version, e.getenv, noUpdateCheck
+			check := update.Start(ctx, uc)
 
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
@@ -142,6 +159,9 @@ func scanCmd(ctx context.Context, e env, code *int) *cobra.Command {
 					return err
 				}
 			}
+			if n := check.Notice(200 * time.Millisecond); n != "" {
+				fmt.Fprintln(e.stderr, n)
+			}
 			switch {
 			case sig != nil:
 				*code = signalCode(sig)
@@ -166,6 +186,7 @@ func scanCmd(ctx context.Context, e env, code *int) *cobra.Command {
 	f.DurationVar(&opts.RunTimeout, "run-timeout", opts.RunTimeout, "cap for the whole run; unfinished URLs become incomplete")
 	f.StringVar(&opts.FailOn, "fail-on", opts.FailOn, "states that make the run fail (comma-separated; empty = never)")
 	f.StringVar(&format, "format", "table", "stdout format: table, json or csv (url,status,state)")
+	f.BoolVar(&noUpdateCheck, "no-update-check", false, "do not look for a newer sitewarm release (also SITEWARM_NO_UPDATE_CHECK=1)")
 	f.StringVar(&reportPath, "report", "", "also write the JSON report to this file")
 	return cmd
 }

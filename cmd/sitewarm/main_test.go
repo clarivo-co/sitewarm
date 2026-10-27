@@ -8,10 +8,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/sitewarm/sitewarm/internal/update"
+	"github.com/sitewarm/sitewarm/pkg/sitewarm"
 )
 
 func server(cacheStatus string) *httptest.Server {
@@ -173,5 +177,34 @@ func TestCookieWithoutCookieHostsFailsAtStart(t *testing.T) {
 	}
 	if code := run(context.Background(), []string{"scan", "--top-from", csvFor(t, srv.URL+"/")}, e); code != 2 {
 		t.Fatalf("exit %d, want 2; stderr: %s", code, h.stderr.String())
+	}
+}
+
+func TestUpdateNotice(t *testing.T) {
+	old := sitewarm.Version
+	sitewarm.Version = "1.0.0"
+	t.Cleanup(func() { sitewarm.Version = old })
+	rel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"tag_name":"v1.1.0"}`))
+	}))
+	defer rel.Close()
+	site := server("HIT")
+	defer site.Close()
+
+	for name, tc := range map[string]struct {
+		extra []string
+		want  bool
+	}{"on a terminal": {nil, true}, "opted out by flag": {[]string{"--no-update-check"}, false}} {
+		h := newHarness()
+		e := h.env()
+		e.update = update.Config{URL: rel.URL, CacheDir: t.TempDir(), TTY: true}
+		args := append([]string{"scan", "--top-from", csvFor(t, site.URL+"/"), "--max-wait", "0", "--format", "csv"}, tc.extra...)
+		run(context.Background(), args, e)
+		if got := strings.Contains(h.stderr.String(), "1.1.0 is available"); got != tc.want {
+			t.Errorf("%s: notice shown = %v, want %v; stderr=%q", name, got, tc.want, h.stderr.String())
+		}
+		if strings.Contains(h.stdout.String(), "available") {
+			t.Errorf("%s: notice leaked to stdout", name)
+		}
 	}
 }

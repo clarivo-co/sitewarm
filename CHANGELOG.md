@@ -9,6 +9,11 @@ the public API.
 
 ### Added
 
+- `sitewarm scan` prints a one-line notice on stderr when a newer release
+  exists. It is off in CI, when stderr is not a terminal and with
+  `SITEWARM_NO_UPDATE_CHECK=1` or `--no-update-check`; it never installs
+  anything, never delays a run and caches the answer for 24 hours. See
+  "Update notice" in the README for what the request sends.
 - With `--from-sitemap`, each entry in the JSON report has an optional
   `lastmod`: the `<lastmod>` of the URL as written in the sitemap. It is left
   out when the sitemap has none or the value is not a W3C datetime, and it
