@@ -42,6 +42,9 @@ const (
 type bodyResult struct {
 	Indexability Indexability
 	Detail       string
+	// Canonical is the href of the first <link rel="canonical"> in <head>,
+	// as written. It is empty when the page has none or was not scanned.
+	Canonical string
 	// WireBytes is the size of the body as received, before decoding.
 	WireBytes int64
 	// Err is set when the body could not be fully downloaded.
@@ -66,7 +69,7 @@ func readBody(resp *http.Response, analyze bool) bodyResult {
 	raw := &countingReader{r: resp.Body}
 	var res bodyResult
 	if analyze {
-		res.Indexability, res.Detail = indexability(resp, raw)
+		res.Indexability, res.Detail, res.Canonical = indexability(resp, raw)
 	}
 	if _, err := io.Copy(io.Discard, raw); err != nil {
 		res.Err = fmt.Errorf("reading body: %w", err)
@@ -75,13 +78,13 @@ func readBody(resp *http.Response, analyze bool) bodyResult {
 	return res
 }
 
-func indexability(resp *http.Response, body io.Reader) (Indexability, string) {
+func indexability(resp *http.Response, body io.Reader) (Indexability, string, string) {
 	if tag := resp.Header.Values("X-Robots-Tag"); xRobotsNoIndex(tag) {
-		return NoIndex, "X-Robots-Tag: " + strings.Join(tag, ", ")
+		return NoIndex, "X-Robots-Tag: " + strings.Join(tag, ", "), ""
 	}
 	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if mediaType != "text/html" && mediaType != "application/xhtml+xml" {
-		return NotHTML, ""
+		return NotHTML, "", ""
 	}
 	var closers []io.Closer
 	defer func() {
@@ -91,11 +94,11 @@ func indexability(resp *http.Response, body io.Reader) (Indexability, string) {
 	}()
 	decoded, err := decode(resp.Header.Values("Content-Encoding"), body, &closers)
 	if err != nil {
-		return IndexabilityError, err.Error()
+		return IndexabilityError, err.Error(), ""
 	}
 	buf, err := io.ReadAll(io.LimitReader(decoded, MaxParseBytes))
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return IndexabilityError, "decoding body: " + err.Error()
+		return IndexabilityError, "decoding body: " + err.Error(), ""
 	}
 	return scanHead(buf)
 }
@@ -154,24 +157,30 @@ func newDeflateReader(r io.Reader) (io.Reader, error) {
 	return flate.NewReader(br), nil
 }
 
-// scanHead looks for meta robots inside <head>. Reaching <body> also ends
-// the head, as it does for browsers.
-func scanHead(buf []byte) (Indexability, string) {
+// scanHead looks for meta robots and the first rel=canonical link inside
+// <head>. Reaching <body> also ends the head, as it does for browsers. The
+// canonical is only returned when the scan reaches the end of the head.
+func scanHead(buf []byte) (Indexability, string, string) {
 	z := html.NewTokenizer(bytes.NewReader(buf))
+	canonical := ""
 	for {
 		switch z.Next() {
 		case html.ErrorToken:
 			// End of the scanned window without leaving <head>.
-			return IndexabilityInconclusive, fmt.Sprintf("</head> not found in the first %d KB", MaxParseBytes>>10)
+			return IndexabilityInconclusive, fmt.Sprintf("</head> not found in the first %d KB", MaxParseBytes>>10), ""
 		case html.EndTagToken:
 			if name, _ := z.TagName(); atom.Lookup(name) == atom.Head {
-				return Indexable, ""
+				return Indexable, "", canonical
 			}
 		case html.StartTagToken, html.SelfClosingTagToken:
 			name, hasAttr := z.TagName()
 			switch atom.Lookup(name) {
 			case atom.Body:
-				return Indexable, ""
+				return Indexable, "", canonical
+			case atom.Link:
+				if canonical == "" && hasAttr {
+					canonical = canonicalHref(z)
+				}
 			case atom.Meta:
 				if !hasAttr {
 					continue
@@ -190,7 +199,7 @@ func scanHead(buf []byte) (Indexability, string) {
 					}
 				}
 				if (metaName == "robots" || metaName == "googlebot") && hasNoIndex(content) {
-					return NoIndex, fmt.Sprintf(`<meta name=%q content=%q>`, metaName, content)
+					return NoIndex, fmt.Sprintf(`<meta name=%q content=%q>`, metaName, content), ""
 				}
 			}
 		}
@@ -235,4 +244,28 @@ func xRobotsNoIndex(values []string) bool {
 		}
 	}
 	return false
+}
+
+// canonicalHref reads the attributes of a <link> tag and returns its href
+// when rel contains the canonical token.
+func canonicalHref(z *html.Tokenizer) string {
+	var rel, href string
+	for {
+		k, v, more := z.TagAttr()
+		switch strings.ToLower(string(k)) {
+		case "rel":
+			rel = strings.ToLower(string(v))
+		case "href":
+			href = strings.TrimSpace(string(v))
+		}
+		if !more {
+			break
+		}
+	}
+	for _, tok := range strings.Fields(rel) {
+		if tok == "canonical" {
+			return href
+		}
+	}
+	return ""
 }

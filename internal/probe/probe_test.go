@@ -375,3 +375,36 @@ func TestXRobotsTagOtherBotIsIndexable(t *testing.T) {
 		t.Fatalf("indexability = %s, want not-html (no noindex for general crawlers)", obs.Indexability)
 	}
 }
+
+func TestCanonical(t *testing.T) {
+	long := "https://example.com/" + strings.Repeat("a", 2100)
+	cases := map[string]struct{ page, want string }{
+		"absolute":        {`<head><link rel="canonical" href="https://example.com/a"></head>`, "https://example.com/a"},
+		"relative":        {`<head><link rel=canonical href="/b?x=1#frag"></head>`, "SRV/b?x=1"},
+		"rel list":        {`<head><link rel="Canonical Alternate" href="https://example.com/c"></head>`, "https://example.com/c"},
+		"first wins":      {`<head><link rel="canonical" href="https://example.com/1"><link rel="canonical" href="https://example.com/2"></head>`, "https://example.com/1"},
+		"other rel":       {`<head><link rel="stylesheet" href="https://example.com/x.css"></head>`, ""},
+		"none":            {`<head></head>`, ""},
+		"in body ignored": {`<head></head><body><link rel="canonical" href="https://example.com/z"></body>`, ""},
+		"javascript url":  {`<head><link rel="canonical" href="javascript:alert(1)"></head>`, ""},
+		"too long":        {`<head><link rel="canonical" href="` + long + `"></head>`, ""},
+		"empty href":      {`<head><link rel="canonical" href=""></head>`, ""},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/html")
+				w.Write([]byte("<html>" + tc.page + "</html>"))
+			}))
+			defer srv.Close()
+			obs := newProber(t, Config{}).Do(context.Background(), srv.URL, desktop)
+			if obs.Err != nil {
+				t.Fatal(obs.Err)
+			}
+			want := strings.Replace(tc.want, "SRV", srv.URL, 1)
+			if obs.Canonical != want {
+				t.Errorf("canonical = %q, want %q", obs.Canonical, want)
+			}
+		})
+	}
+}

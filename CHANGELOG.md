@@ -14,6 +14,10 @@ the public API.
   out when the sitemap has none or the value is not a W3C datetime, and it
   never changes a state or the verdict. The existing fields are unchanged.
   In Go, `Result` entries have a `LastMod` string.
+- Each entry in the JSON report has `canonical` (the canonical URL of the
+  page, when it has one) and `warmed` (whether the measurement came after the
+  URL had been requested before, or was already a `HIT`). Existing fields are
+  unchanged. In Go, `Result` entries have `Canonical` and `Warmed`.
 
 ## [1.0.2] - 2026-10-24
 

@@ -106,8 +106,11 @@ type Observation struct {
 	HasTTFB            bool
 	Indexability       Indexability
 	IndexabilityDetail string
-	WireBytes          int64
-	Err                error
+	// Canonical is the absolute http(s) canonical URL of the final page, at
+	// most 2048 bytes, or "" when it has none or the value is not usable.
+	Canonical string
+	WireBytes int64
+	Err       error
 }
 
 func isRedirect(status int) bool {
@@ -136,6 +139,7 @@ func (p *Prober) Do(ctx context.Context, rawURL string, prof Profile) Observatio
 		obs.Status, obs.Header, obs.Err = r.status, r.header, r.err
 		obs.TTFB, obs.HasTTFB = r.ttfb, r.hasTTFB
 		obs.Indexability, obs.IndexabilityDetail = r.body.Indexability, r.body.Detail
+		obs.Canonical = resolveCanonical(current, r.body.Canonical)
 		obs.WireBytes = r.body.WireBytes
 		if obs.Err != nil || !isRedirect(r.status) {
 			return obs
@@ -237,4 +241,24 @@ func (p *Prober) fetch(ctx context.Context, u *url.URL, prof Profile) fetchResul
 		r.err = r.body.Err
 	}
 	return r
+}
+
+// maxCanonical bounds a reported canonical URL.
+const maxCanonical = 2048
+
+// resolveCanonical resolves href against the page URL and keeps it only when
+// the result is an absolute http or https URL of a sane length.
+func resolveCanonical(page *url.URL, href string) string {
+	if href == "" {
+		return ""
+	}
+	u, err := page.Parse(href)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	u.Fragment = ""
+	if s := u.String(); len(s) <= maxCanonical {
+		return s
+	}
+	return ""
 }
