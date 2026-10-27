@@ -277,6 +277,8 @@ Each entry in `results`:
 | `cache_control`, `age`, `vary` | response headers |
 | `set_cookie` | whether the response had a `Set-Cookie` header (the value is never reported) |
 | `indexability`, `indexability_detail` | see [Failing on `noindex`](#failing-on-noindex) |
+| `canonical` | the absolute URL in the first `<link rel="canonical">` of the page's `<head>`, resolved against the final URL, at most 2048 bytes; left out when the page has none or the value is not an http(s) URL |
+| `warmed` | `true` when the reported measurement came after the URL had already been requested once in this run, or the first response was already a `HIT`; `false` for a single request that was not a `HIT` |
 | `detail`, `warnings` | explanation of the state, and per-result warnings |
 
 Fields with no value are left out, except `ttfb_first_ms`, `ttfb_final_ms`,

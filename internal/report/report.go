@@ -115,8 +115,15 @@ type Entry struct {
 	SetCookie          bool               `json:"set_cookie"`
 	Indexability       probe.Indexability `json:"indexability,omitempty"`
 	IndexabilityDetail string             `json:"indexability_detail,omitempty"`
-	Detail             string             `json:"detail,omitempty"`
-	Warnings           []string           `json:"warnings,omitempty"`
+	// Canonical is the absolute canonical URL of the final page, from
+	// <link rel="canonical"> in <head>. It is left out when the page has none.
+	Canonical string `json:"canonical,omitempty"`
+	// Warmed is true when the reported measurement came after the URL had
+	// already been requested once in this run, or the first response was
+	// already a HIT. It is false for a single request that was not a HIT.
+	Warmed   bool     `json:"warmed"`
+	Detail   string   `json:"detail,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // Summary aggregates the entries.
@@ -248,6 +255,7 @@ func entry(o verify.Outcome) Entry {
 	if o.GotHit {
 		e.TimeToHitMS = ms(o.TimeToHit)
 	}
+	e.Warmed = o.Attempts > 1 || o.InitialState == cdn.Hit
 	last := o.Last
 	if last == nil {
 		return e
@@ -270,6 +278,7 @@ func entry(o verify.Outcome) Entry {
 	}
 	e.Indexability = last.Indexability
 	e.IndexabilityDetail = last.IndexabilityDetail
+	e.Canonical = last.Canonical
 	if len(last.Redirects) > 0 && last.RedirectError == "" {
 		e.Warnings = append(e.Warnings, fmt.Sprintf("redirected: %s → %s", last.URL, last.FinalURL))
 	}

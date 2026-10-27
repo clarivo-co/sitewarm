@@ -204,3 +204,25 @@ func TestWriteCSV(t *testing.T) {
 		t.Fatalf("got\n%s\nwant\n%s", b.String(), want)
 	}
 }
+
+func TestEntryWarmedAndCanonical(t *testing.T) {
+	obs := probe.Observation{Status: 200, Canonical: "https://example.com/a"}
+	cases := map[string]struct {
+		o    verify.Outcome
+		want bool
+	}{
+		"hit on first request": {verify.Outcome{State: cdn.Hit, InitialState: cdn.Hit, Attempts: 1, Last: &obs}, true},
+		"hit after a miss":     {verify.Outcome{State: cdn.Hit, InitialState: cdn.Miss, Attempts: 2, Last: &obs}, true},
+		"single miss":          {verify.Outcome{State: cdn.Miss, InitialState: cdn.Miss, Attempts: 1, Last: &obs}, false},
+		"skipped by robots":    {SkippedOutcome(verify.Pair{}), false},
+	}
+	for name, tc := range cases {
+		e := entry(tc.o)
+		if e.Warmed != tc.want {
+			t.Errorf("%s: warmed = %v, want %v", name, e.Warmed, tc.want)
+		}
+	}
+	if got := entry(cases["single miss"].o).Canonical; got != "https://example.com/a" {
+		t.Errorf("canonical = %q", got)
+	}
+}
