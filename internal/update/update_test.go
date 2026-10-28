@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -218,6 +219,9 @@ func TestCacheFilePermissions(t *testing.T) {
 	fi, err := os.Stat(filepath.Join(c.CacheDir, "sitewarm", cacheName))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		return // no Unix permission bits on Windows; the cache file is still written (Stat succeeded)
 	}
 	if fi.Mode().Perm() != 0o600 {
 		t.Errorf("cache mode = %v, want 0600", fi.Mode().Perm())
