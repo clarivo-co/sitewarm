@@ -304,6 +304,21 @@ What changes on purpose:
   `domain,http_code,time,robots_status,cache_control`. Timings, indexability
   and cache headers are in the JSON report (`--format json` or `--report`).
 
+### Update notice
+
+When a newer release exists, `sitewarm scan` prints one line to stderr after
+the report, for example `sitewarm: 1.1.0 is available (you have 1.0.2): <release URL>`.
+It never installs anything; update with the channel you installed from.
+
+The check is a plain `GET` of the latest release of `sitewarm/sitewarm` on the
+GitHub API. It sends no identifiers and no usage data beyond the
+`sitewarm/<version>` User-Agent, and GitHub sees the IP address of the
+request. The result is cached for 24 hours in your user cache directory
+(`sitewarm/update-check.json`), a failure is silent, and it never delays the
+run. It is off when stderr is not a terminal, when `CI` or `GITHUB_ACTIONS`
+is set, and for builds without a release version. To turn it off, set
+`SITEWARM_NO_UPDATE_CHECK=1` or pass `--no-update-check`.
+
 ### Limitations
 
 A `hit` is verified only at the CDN PoP serving the machine that runs
